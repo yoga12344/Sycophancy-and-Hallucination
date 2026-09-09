@@ -1,0 +1,6 @@
+{
+  "name": "SYCOGUARD",
+  "description": "Experimental AI safety firewall for detecting conversational belief reinforcement, factual sycophancy, and delusional spiraling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
