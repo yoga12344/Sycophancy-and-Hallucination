@@ -1,5 +1,5 @@
 async function testTides() {
-  const res = await fetch('http://localhost:3000/api/chat', {
+  const res = await fetch('http://127.0.0.1:3000/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: "What causes tides in Earth's oceans?" })

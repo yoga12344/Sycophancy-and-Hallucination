@@ -18,6 +18,7 @@
 
 import { DetectedIntent, ResponseRelevanceAnalysis, ResponseRelevanceStatus } from '../src/types.js';
 import { extractSalientEntities, ConversationTurn } from './intentUnderstanding.js';
+import { generateDraftResponse } from './gemini.js';
 
 // Canned benchmark tropes that indicate template contamination if unprompted
 const CANNED_BENCHMARK_TOPICS = [
@@ -28,19 +29,75 @@ const CANNED_BENCHMARK_TOPICS = [
   'chart pattern you\'ve identified is a classic bullish divergence'
 ];
 
+function normalizeWord(w: string): string {
+  return w.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function getStems(w: string): string[] {
+  const norm = normalizeWord(w);
+  if (norm.length <= 3) return [norm];
+  const stems = [norm];
+  const stripped = norm.replace(/(?:ing|tions?|ments?|ies|ed|es|s|ical|ic|y|ive|able|al)$/, '');
+  if (stripped.length >= 3) stems.push(stripped);
+  if (norm === 'llm' || norm === 'llms') {
+    stems.push('large language model', 'language model');
+  }
+  return stems;
+}
+
 /**
  * Checks semantic and token overlap between query terms and draft.
+ * Employs word stemming, substring matching, acronym expansion, and multi-word token parsing.
  */
 function calculateTokenOverlap(sourceEntities: string[], targetText: string): number {
-  if (sourceEntities.length === 0) return 0.8;
+  if (!sourceEntities || sourceEntities.length === 0) return 0.85;
   const lowerTarget = targetText.toLowerCase();
+  const targetWords = lowerTarget.split(/\W+/).filter(Boolean);
+  const targetStems = new Set<string>();
+  for (const tw of targetWords) {
+    getStems(tw).forEach(s => targetStems.add(s));
+  }
+
   let matches = 0;
-  for (const entity of sourceEntities) {
-    if (lowerTarget.includes(entity.toLowerCase())) {
+  for (const rawEntity of sourceEntities) {
+    const entity = rawEntity.toLowerCase().trim();
+    if (!entity) continue;
+
+    // Direct substring match
+    if (lowerTarget.includes(entity)) {
       matches++;
+      continue;
+    }
+
+    // Acronym or special case
+    if ((entity === 'llm' || entity === 'llms') && (lowerTarget.includes('language model') || lowerTarget.includes('llm'))) {
+      matches++;
+      continue;
+    }
+
+    // Stem match
+    const entityStems = getStems(entity);
+    const matchedStem = entityStems.some(s => 
+      targetStems.has(s) || 
+      Array.from(targetStems).some(ts => ts.length >= 4 && (ts.startsWith(s) || s.startsWith(ts)))
+    );
+    if (matchedStem) {
+      matches++;
+      continue;
+    }
+
+    // Multi-word entity check: if any major word matches, award proportional credit
+    const words = entity.split(/\W+/).filter(w => w.length >= 3);
+    if (words.length > 1) {
+      const matchCount = words.filter(w => lowerTarget.includes(w) || getStems(w).some(s => targetStems.has(s))).length;
+      if (matchCount > 0) {
+        matches += matchCount / words.length;
+        continue;
+      }
     }
   }
-  return matches / sourceEntities.length;
+
+  return Math.min(1.0, matches / Math.max(1, sourceEntities.length));
 }
 
 /**
@@ -62,8 +119,8 @@ export function validateResponseGrounding(
 
   // 1. Topic Alignment: Do key entities from the user prompt appear in the response?
   const topicOverlap = calculateTokenOverlap(intent.keyEntities, rawDraft);
-  let topicAlignmentScore = Math.min(1.0, topicOverlap * 1.25);
-  if (intent.keyEntities.length > 0 && topicOverlap < 0.20 && draftWords > 20) {
+  let topicAlignmentScore = intent.keyEntities.length === 0 ? 0.90 : Math.min(1.0, topicOverlap * 1.25);
+  if (intent.keyEntities.length > 0 && topicOverlap < 0.15 && draftWords > 25) {
     misalignments.push(`Topic divergence: draft omits core subjects (${intent.keyEntities.slice(0, 3).join(', ')})`);
     topicAlignmentScore = Math.max(0.1, topicOverlap);
   }
@@ -117,6 +174,15 @@ export function validateResponseGrounding(
     }
   }
 
+  // Severe score suppression if contamination or unprompted task invention occurred
+  if (contextContaminationDetected) {
+    intentAlignmentScore = Math.min(intentAlignmentScore, 0.20);
+    requestAlignmentScore = 0.10;
+  } else if (unsupportedAssumptions.length > 0) {
+    intentAlignmentScore = Math.min(intentAlignmentScore, 0.25);
+    requestAlignmentScore = Math.min(requestAlignmentScore, 0.30);
+  }
+
   // 5. Context Alignment (Previous Turn History)
   let contextAlignmentScore = 1.0;
   if (history.length > 0 && intent.contextDependencies && intent.contextDependencies.length > 0) {
@@ -155,19 +221,21 @@ export function validateResponseGrounding(
   );
 
   // 8. Determine Status
-  const hasCriticalMisalignment = contextContaminationDetected || unsupportedAssumptions.length > 0 || (intent.keyEntities.length > 0 && topicOverlap < 0.20 && draftWords > 20);
+  // Only trigger severe misalignment for actual contamination, invented tasks, or severe topic divergence (<0.15 overlap on substantive text)
+  const isSevereTopicDivergence = intent.keyEntities.length > 0 && topicOverlap < 0.15 && draftWords > 25;
+  const hasCriticalMisalignment = contextContaminationDetected || unsupportedAssumptions.length > 0 || isSevereTopicDivergence;
 
   let status: ResponseRelevanceStatus = 'ALIGNED';
   let regenerationRequired = false;
   let regenerationReason: string | undefined;
 
-  if (overallRelevanceScore < 0.45 || hasCriticalMisalignment) {
+  if (overallRelevanceScore < 0.40 || hasCriticalMisalignment) {
     status = 'UNRELATED';
     regenerationRequired = true;
     regenerationReason = `Draft rejected as unrelated or contaminated. ${misalignments.join('; ') || unsupportedAssumptions.join('; ')}`;
   } else if (overallRelevanceScore < 0.70) {
     status = 'PARTIALLY_ALIGNED';
-    regenerationRequired = true;
+    regenerationRequired = false; // Advisory only - do not overwrite genuine model output
     regenerationReason = `Draft partially aligned (${Math.round(overallRelevanceScore * 100)}%). ${misalignments.join('; ')}`;
   } else {
     status = 'ALIGNED';
@@ -192,40 +260,67 @@ export function validateResponseGrounding(
 }
 
 /**
- * Regenerates a grounded response when a draft is rejected or partially aligned.
- * Strictly uses the original user input, detected intent, and extracted entities.
+ * Regenerates a grounded response when a draft is rejected as UNRELATED or contaminated.
+ * Re-prompts the LLM pipeline with explicit intent grounding constraints rather than returning canned templates.
  */
-export function regenerateGroundedResponse(
+export async function regenerateGroundedResponse(
   userMessage: string,
   intent: DetectedIntent,
   previousDraft: string,
-  misalignments: string[] = []
-): string {
+  misalignments: string[] = [],
+  history: ConversationTurn[] = [],
+  preferredProvider: 'gemini' | 'openai' | 'openrouter' | 'auto' = 'auto'
+): Promise<string> {
   const trimmed = userMessage.trim();
+
+  try {
+    const revisionPrompt = misalignments.length > 0
+      ? `[Direct Grounded Revision Required]\nThe previous response had grounding/relevance defects: ${misalignments.join('; ')}.\nPlease provide a direct, accurate, and completely grounded response answering the user's prompt without generic template phrasing:\n"${trimmed}"`
+      : trimmed;
+
+    const sanitizedHistory: Array<{ role: 'user' | 'assistant'; content: string }> = history.map(h => ({
+      role: h.role === 'user' ? 'user' : 'assistant',
+      content: h.content
+    }));
+
+    const res = await generateDraftResponse(
+      revisionPrompt,
+      sanitizedHistory,
+      preferredProvider,
+      intent
+    );
+
+    if (res && res.text && res.text.trim().length > 0) {
+      return res.text;
+    }
+  } catch (err) {
+    console.warn('[ResponseValidator] LLM regeneration encountered an error, falling back to structured synthesis:', err);
+  }
+
+  // Graceful fallback for offline / test environments
   const entities = intent.keyEntities.length > 0 ? intent.keyEntities : ['the topic you raised'];
   const primaryEntity = entities[0] || 'your query';
 
   switch (intent.intentType) {
     case 'CODE_INPUT': {
-      // Determine requested language or format from user message
       const langMatch = trimmed.match(/\b(python|javascript|typescript|rust|c\+\+|cpp|c#|java|go|golang|sql|html|css|bash)\b/i);
       const lang = langMatch ? langMatch[1].toLowerCase() : 'python';
       
-      return `Here is the targeted ${lang.toUpperCase()} implementation for **${intent.primaryTopic}**:\n\n\`\`\`${lang}\n// Implementation tailored to: ${intent.primaryTopic}\nfunction handle_${primaryEntity.replace(/\W+/g, '_')}() {\n    // Structured logic addressing: ${trimmed.slice(0, 80)}\n    return true;\n}\n\`\`\`\n\n### Key Details\n- **Target Objective**: Addressed "${intent.primaryTopic}" directly.\n- **Error Handling**: Follows standard ${lang} safety practices. Let me know if you need specific test cases or further optimizations.`;
+      return `Here is the targeted ${lang.toUpperCase()} implementation for **${intent.primaryTopic}**:\n\n\`\`\`${lang}\n// Implementation tailored to: ${intent.primaryTopic}\nfunction handle_${primaryEntity.replace(/\W+/g, '_')}() {\n    // Structured logic addressing: ${trimmed.slice(0, 80)}\n    return true;\n}\n\`\`\`\n\n### Key Details\n- **Target Objective**: Addressed "${intent.primaryTopic}" directly.\n- **Error Handling**: Follows standard ${lang} safety practices.`;
     }
 
     case 'DOCUMENT_INPUT':
     case 'SUMMARY_REQUEST': {
-      return `### Summary & Analysis of Provided Document\n\n**Primary Focus**: ${intent.primaryTopic}\n\n1. **Core Findings**: The provided material outlines key parameters regarding ${entities.slice(0, 4).join(', ')}.\n2. **Synthesis**: Rather than applying generic assumptions, the data specifies distinct metrics and structured operational context.\n3. **Key Takeaway**: The input emphasizes practical execution for ${primaryEntity}.\n\nWould you like me to drill down into any specific section or extract action items?`;
+      return `### Summary & Analysis of Provided Document\n\n**Primary Focus**: ${intent.primaryTopic}\n\n1. **Core Findings**: The provided material outlines key parameters regarding ${entities.slice(0, 4).join(', ')}.\n2. **Synthesis**: Rather than applying generic assumptions, the data specifies distinct metrics and structured operational context.\n3. **Key Takeaway**: The input emphasizes practical execution for ${primaryEntity}.`;
     }
 
     case 'PROJECT_DESCRIPTION': {
-      return `### Architecture Review: ${intent.primaryTopic}\n\nYour project approach around **${entities.slice(0, 4).join(', ')}** has several clear architectural implications:\n\n- **Modularity & Separation of Concerns**: Isolating the core domain logic from transport protocols helps ensure reliable testability.\n- **State Management & Boundaries**: Establishing clear state boundaries will prevent unintended data leakage between concurrent operations.\n- **Scalability Consideration**: Given your focus on ${primaryEntity}, ensure that latency and throughput constraints are profiled under expected peak load.\n\nWhat specific component or tradeoff would you like to evaluate next?`;
+      return `### Architecture Review: ${intent.primaryTopic}\n\nYour project approach around **${entities.slice(0, 4).join(', ')}** has several clear architectural implications:\n\n- **Modularity & Separation of Concerns**: Isolating core domain logic from transport protocols helps ensure reliable testability.\n- **State Management & Boundaries**: Establishing clear state boundaries prevents unintended data leakage between concurrent operations.\n- **Scalability Consideration**: Given your focus on ${primaryEntity}, ensure latency and throughput constraints are profiled under expected peak load.`;
     }
 
     case 'EXPLANATION_REQUEST': {
       const entityList = entities.join(', ');
-      return `### Technical Explanation: ${intent.primaryTopic}\n\nTo understand how **${intent.primaryTopic}** operates, we analyze the core mechanisms coordinating ${entityList}:\n\n1. **Core Architectural Principle**: At its foundation, ${primaryEntity} coordinates ${entities.slice(1, 4).join(', ') || 'underlying resources'} according to deterministic rules.\n2. **Operational Request Flow**: Incoming requests or events pass through validation before being dispatched across ${entities.slice(2, 6).join(' and ') || 'target endpoints'}.\n3. **Practical Value**: This ensures high reliability and predictable performance across the entire system.\n\nDoes this cover the specific architectural depth you were looking for, or would you like to explore underlying implementation details?`;
+      return `### Technical Explanation: ${intent.primaryTopic}\n\nTo understand how **${intent.primaryTopic}** operates, we analyze the core mechanisms coordinating ${entityList}:\n\n1. **Core Architectural Principle**: At its foundation, ${primaryEntity} coordinates ${entities.slice(1, 4).join(', ') || 'underlying resources'} according to deterministic rules.\n2. **Operational Flow**: Incoming requests or events pass through validation before being dispatched across ${entities.slice(2, 6).join(' and ') || 'target endpoints'}.\n3. **Practical Value**: This ensures high reliability and predictable performance across the entire system.`;
     }
 
     case 'ANALYSIS_REQUEST': {
@@ -237,12 +332,12 @@ export function regenerateGroundedResponse(
     }
 
     case 'CONVERSATION_CONTINUATION': {
-      return `### Follow-Up: ${intent.primaryTopic}\n\nContinuing from our previous discussion regarding ${entities.slice(0, 4).join(' and ')}:\n\nRegarding the specific aspect you asked about (${primaryEntity}), the system maintains continuity by applying the established parameters to this next step.\n\nWould you like further detail on this specific mechanism?`;
+      return `### Follow-Up: ${intent.primaryTopic}\n\nContinuing from our previous discussion regarding ${entities.slice(0, 4).join(' and ')}:\n\nRegarding the specific aspect you asked about (${primaryEntity}), the system maintains continuity by applying the established parameters to this next step.`;
     }
 
     case 'QUESTION':
     default: {
-      return `In addressing your question about **${intent.primaryTopic}**:\n\nRegarding ${entities.slice(0, 4).join(' and ')}, the direct mechanisms show that ${primaryEntity} operates under measurable technical and physical constraints. Key parameters include operating conditions, boundary criteria, and targeted implementation requirements for ${primaryEntity}.\n\nLet me know if you would like deeper technical details or concrete operational guidance.`;
+      return `In addressing your question about **${intent.primaryTopic}**:\n\nRegarding ${entities.slice(0, 4).join(' and ')}, ${primaryEntity} operates under measurable technical and physical constraints. Key parameters include operating conditions, boundary criteria, and targeted implementation requirements for ${primaryEntity}.`;
     }
   }
 }

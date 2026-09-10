@@ -173,7 +173,7 @@ async function runTests() {
   assert(validation.contextContaminationDetected === true || validation.unsupportedAssumptions.length > 0, 'Context contamination or unsupported assumption detected');
 
   // Test regeneration
-  const regenerated = regenerateGroundedResponse(userPrompt, intent13, contaminatedDraft, validation.detectedMisalignments);
+  const regenerated = await regenerateGroundedResponse(userPrompt, intent13, contaminatedDraft, validation.detectedMisalignments);
   assert(regenerated.toLowerCase().includes('kubernetes') || regenerated.toLowerCase().includes('ingress') || regenerated.toLowerCase().includes('traffic'), 'Regenerated response directly addresses Kubernetes ingress');
   const recheck = validateResponseGrounding(userPrompt, regenerated, intent13, []);
   assert(recheck.status === 'ALIGNED', 'Regenerated response is now ALIGNED');

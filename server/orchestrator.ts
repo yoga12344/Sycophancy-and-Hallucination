@@ -105,10 +105,17 @@ export async function orchestrateFirewallPipeline(
     rawPayload: { ...responseRelevance }
   });
 
-  // If UNRELATED or PARTIALLY_ALIGNED: Reject and regenerate using user intent
+  // If UNRELATED: Reject and regenerate using user intent & LLM grounding
   if (responseRelevance.regenerationRequired) {
     const tRegen = Date.now();
-    effectiveDraft = regenerateGroundedResponse(userMessage, intent, rawDraft, responseRelevance.detectedMisalignments);
+    effectiveDraft = await regenerateGroundedResponse(
+      userMessage,
+      intent,
+      rawDraft,
+      responseRelevance.detectedMisalignments,
+      historyParts,
+      preferredProvider
+    );
     wasRegenerated = true;
 
     // Re-verify the regenerated response
