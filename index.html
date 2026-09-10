@@ -9,9 +9,23 @@
     <meta property="og:description" content="An experimental AI safety firewall for detecting conversational belief reinforcement and sycophantic response behavior." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      html, body, #root {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      #root {
+        display: flex !important;
+        flex-direction: column !important;
+      }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #08080a;">
+    <div id="root" style="width: 100%; height: 100%; min-height: 100%; display: flex; flex-direction: column;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
