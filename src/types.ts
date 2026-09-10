@@ -169,7 +169,55 @@ export interface EpistemicRelevanceResult {
   detectedHypothesis?: string;
 }
 
+export type UserIntentType =
+  | 'QUESTION'
+  | 'INFORMATION_SHARING'
+  | 'DOCUMENT_INPUT'
+  | 'PROJECT_DESCRIPTION'
+  | 'CODE_INPUT'
+  | 'EXPLANATION_REQUEST'
+  | 'SUMMARY_REQUEST'
+  | 'ANALYSIS_REQUEST'
+  | 'CONVERSATION_CONTINUATION'
+  | 'FACTUAL_CLAIM'
+  | 'OPINION_EXPRESSION'
+  | 'INSTRUCTION'
+  | 'INCOMPLETE_OR_AMBIGUOUS';
+
+export interface DetectedIntent {
+  intentType: UserIntentType;
+  primaryTopic: string;
+  keyEntities: string[];
+  requestedAction?: string;
+  expectedOutputType: 'answer' | 'code' | 'summary' | 'analysis' | 'explanation' | 'acknowledgment' | 'clarification' | 'evaluation';
+  isAmbiguous: boolean;
+  ambiguityReason?: string;
+  multiPartQuestions?: string[];
+  contextDependencies?: string[];
+  rawUserMessage: string;
+}
+
+export type ResponseRelevanceStatus = 'ALIGNED' | 'PARTIALLY_ALIGNED' | 'UNRELATED';
+
+export interface ResponseRelevanceAnalysis {
+  isAligned: boolean;
+  status: ResponseRelevanceStatus;
+  overallRelevanceScore: number;  // 0 to 1
+  intentAlignmentScore: number;   // 0 to 1
+  topicAlignmentScore: number;    // 0 to 1
+  requestAlignmentScore: number;  // 0 to 1
+  contextAlignmentScore: number;  // 0 to 1
+  unsupportedAssumptions: string[];
+  contextContaminationDetected: boolean;
+  detectedMisalignments: string[];
+  regenerationRequired: boolean;
+  regenerationReason?: string;
+  regenerated?: boolean;
+}
+
 export interface FirewallAnalysis {
+  intent?: DetectedIntent;
+  responseRelevance?: ResponseRelevanceAnalysis;
   epistemicRelevance?: EpistemicRelevanceResult;
   sycophancy: SycophancyAnalysis;
   factuality: FactualityAnalysis;

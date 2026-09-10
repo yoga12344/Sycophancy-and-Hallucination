@@ -65,6 +65,8 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
   const evidenceBalance = analysis?.evidenceBalance;
   const trajectory = analysis?.trajectory;
   const gate = analysis?.epistemicRelevance;
+  const intent = analysis?.intent;
+  const relevance = analysis?.responseRelevance;
 
   const overallScore = risk ? Math.round(risk.overallScore * 100) : null;
   const riskLevel: RiskLevel | 'STANDBY' = risk ? risk.level : 'STANDBY';
@@ -196,6 +198,86 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
             </div>
           ) : (
             <>
+              {/* Response Grounding & Intent Alignment Diagnostics */}
+              {relevance && (
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                      Response Grounding &amp; Relevance
+                    </h3>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      relevance.status === 'ALIGNED' 
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' 
+                        : relevance.status === 'PARTIALLY_ALIGNED'
+                        ? 'text-amber-400 bg-amber-500/10 border-amber-500/25'
+                        : 'text-rose-400 bg-rose-500/10 border-rose-500/25'
+                    }`}>
+                      {relevance.status}
+                    </span>
+                  </div>
+
+                  <div className="glass-card rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-300">Detected Intent</span>
+                      <span className="font-mono text-zinc-100 text-[11px] bg-white/[0.05] px-2 py-0.5 rounded">
+                        {intent?.intentType || 'QUERY'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-300">Primary Subject</span>
+                      <span className="font-mono text-zinc-200 text-[11px] truncate max-w-[180px]">
+                        {intent?.primaryTopic || 'General'}
+                      </span>
+                    </div>
+
+                    {/* Grounding Score */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-zinc-400">Relevance Alignment</span>
+                        <span className="font-mono text-zinc-100 font-semibold">
+                          {Math.round(relevance.overallRelevanceScore * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${Math.round(relevance.overallRelevanceScore * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sub-scores */}
+                    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.06] text-center">
+                      <div>
+                        <div className="text-[10px] text-zinc-400">Intent</div>
+                        <div className="text-xs font-mono font-medium text-zinc-200">
+                          {Math.round(relevance.intentAlignmentScore * 100)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-zinc-400">Topic</div>
+                        <div className="text-xs font-mono font-medium text-zinc-200">
+                          {Math.round(relevance.topicAlignmentScore * 100)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-zinc-400">Context</div>
+                        <div className="text-xs font-mono font-medium text-zinc-200">
+                          {Math.round(relevance.contextAlignmentScore * 100)}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {relevance.regenerated && (
+                      <div className="text-[10px] font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-md">
+                        ⚡ Regenerated to enforce intent alignment
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Epistemic Risk Signals (User Message & LLM Draft Analysis) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

@@ -14,7 +14,8 @@ import { EpistemicCategory, EpistemicRelevanceResult } from '../src/types.js';
 // Regular expressions for greetings & pleasantries
 const GREETING_PATTERNS = [
   /^(hello|hi|hey|heya|howdy|greetings|good\s+(morning|afternoon|evening|day)|yo|sup)[\s!.,?]*$/i,
-  /^(hi|hello|hey)\s+(there|assistant|bot|sycoguard|friend)[\s!.,?]*$/i
+  /^(hi|hello|hey|good\s+(morning|afternoon|evening|day))\s+([^.!?]+)?[!.,]?$/i,
+  /^(good\s+(morning|afternoon|evening|day))[\s!.,]+(?:hope\s+you(?:'re|\s+are)?\s+having\s+a\s+[^.!?]+)?/i
 ];
 
 // Conversational pleasantries, acknowledgments, or bot identity questions
@@ -23,7 +24,8 @@ const CASUAL_PATTERNS = [
   /^(thanks|thank you|thx|ty|much appreciated|thanks a lot|great thanks)[\s!.,]*$/i,
   /^(ok|okay|got it|cool|nice|understood|noted|awesome|sure thing|sounds good)[\s!.,]*$/i,
   /^(bye|goodbye|see you|take care|have a good one)[\s!.,]*$/i,
-  /^(who are you|what is your name|what can you do|what are your capabilities|introduce yourself)[\s?]*$/i
+  /^(who are you|what is your name|what can you do|what are your capabilities|introduce yourself)[\s?]*$/i,
+  /\bhope you(?:'re|\s+are)? having a (?:good|great|nice|productive) (?:day|week|weekend)\b/i
 ];
 
 // Programming, software development, debugging, and computational tasks

@@ -1,11 +1,24 @@
 /**
  * SYCOGUARD Agentic Orchestrator
  * 
- * Coordinates the multi-analyzer pipeline, computes composite risk,
- * executes interventions, and produces transparent execution traces for observability.
+ * Coordinates the full intent-grounded cognitive defense pipeline:
  * 
- * Stage 0: Epistemic Relevance Gate prevents false-positive interventions on
- * greetings, pleasantries, non-epistemic tasks, and casual inquiries.
+ * USER INPUT
+ *     ↓
+ * CONTEXT & INTENT UNDERSTANDING (server/intentUnderstanding.ts)
+ *     ↓
+ * LLM DRAFT GENERATION (server/gemini.ts + providers)
+ *     ↓
+ * RESPONSE GROUNDING & RELEVANCE VALIDATION (server/responseValidator.ts)
+ *     [If misaligned/unrelated: REJECT & REGENERATE using user intent]
+ *     ↓
+ * EPISTEMIC / SAFETY ANALYSIS (Gate, Hypothesis, RAG, Factuality, Sycophancy, Balance)
+ *     ↓
+ * COMPOSITE RISK ENGINE (Dual-Analysis on original user input & draft)
+ *     ↓
+ * INTERVENTION AGENT (Grounded in user's actual premise & topic)
+ *     ↓
+ * FINAL DELIVERED RESPONSE & OBSERVABILITY TRACE
  */
 
 import {
@@ -19,9 +32,11 @@ import { extractUserHypothesis, analyzeSycophancy } from './sycophancyAnalyzer.j
 import { analyzeFactuality } from './factualityAnalyzer.js';
 import { analyzeEvidenceBalance } from './evidenceBalanceEngine.js';
 import { analyzeTrajectory } from './trajectoryEngine.js';
-import { computeRisk, getRiskWeights, logEpistemicPipelineTrace } from './riskEngine.js';
+import { computeRisk, getRiskWeights } from './riskEngine.js';
 import { runInterventionAgent } from './interventionAgent.js';
 import { evaluateEpistemicRelevance } from './epistemicGate.js';
+import { analyzeUserIntent } from './intentUnderstanding.js';
+import { validateResponseGrounding, regenerateGroundedResponse } from './responseValidator.js';
 
 export interface OrchestrationResult {
   rawDraft: string;
@@ -38,15 +53,91 @@ export async function orchestrateFirewallPipeline(
 ): Promise<OrchestrationResult> {
   const trace: FirewallTraceStep[] = [];
   const startTotal = Date.now();
+  const historyParts = history.map(h => ({ role: h.role, content: h.content }));
 
   // ============================================================
-  // STAGE 0: Epistemic Relevance Gate
+  // STAGE 1: Context & Intent Understanding
+  // ============================================================
+  const tIntent = Date.now();
+  const intent = analyzeUserIntent(userMessage, historyParts);
+
+  trace.push({
+    id: 'step_1_intent',
+    name: 'Context & Intent Understanding',
+    status: intent.isAmbiguous ? 'flagged' : 'completed',
+    timestamp: tIntent,
+    durationMs: Math.max(1, Date.now() - tIntent),
+    outputSummary: `Intent: ${intent.intentType} | Topic: "${intent.primaryTopic}" | Expected Output: ${intent.expectedOutputType}${intent.isAmbiguous ? ' [Ambiguous]' : ''}`,
+    rawPayload: { ...intent }
+  });
+
+  // ============================================================
+  // STAGE 2: Intercept Raw Model Draft
+  // ============================================================
+  const tDraft = Date.now();
+  const { text: rawDraft, provider, isDemo } = await generateDraftResponse(userMessage, historyParts, preferredProvider);
+
+  trace.push({
+    id: 'step_2_llm_draft',
+    name: 'Intercept Raw Model Draft',
+    status: 'completed',
+    timestamp: tDraft,
+    durationMs: Math.max(1, Date.now() - tDraft),
+    outputSummary: `Generated ${rawDraft.length} chars via ${provider} (${isDemo ? 'Demo Mode' : 'Live Model'}). Intercepted before user display.`,
+    rawPayload: { rawDraftSnippet: rawDraft.slice(0, 120) + '...', provider, isDemo }
+  });
+
+  // ============================================================
+  // STAGE 3: Response Grounding & Relevance Validation
+  // ============================================================
+  const tVal = Date.now();
+  let responseRelevance = validateResponseGrounding(userMessage, rawDraft, intent, historyParts);
+  let effectiveDraft = rawDraft;
+  let wasRegenerated = false;
+
+  trace.push({
+    id: 'step_3_grounding',
+    name: 'Response Grounding & Relevance Validation',
+    status: responseRelevance.status === 'ALIGNED' ? 'completed' : 'flagged',
+    timestamp: tVal,
+    durationMs: Math.max(1, Date.now() - tVal),
+    outputSummary: `Grounding Status: ${responseRelevance.status} (Score: ${(responseRelevance.overallRelevanceScore * 100).toFixed(0)}%). Misalignments: ${responseRelevance.detectedMisalignments.length}`,
+    rawPayload: { ...responseRelevance }
+  });
+
+  // If UNRELATED or PARTIALLY_ALIGNED: Reject and regenerate using user intent
+  if (responseRelevance.regenerationRequired) {
+    const tRegen = Date.now();
+    effectiveDraft = regenerateGroundedResponse(userMessage, intent, rawDraft, responseRelevance.detectedMisalignments);
+    wasRegenerated = true;
+
+    // Re-verify the regenerated response
+    const recheck = validateResponseGrounding(userMessage, effectiveDraft, intent, historyParts);
+    responseRelevance = {
+      ...recheck,
+      regenerated: true,
+      regenerationReason: responseRelevance.regenerationReason
+    };
+
+    trace.push({
+      id: 'step_3b_regeneration',
+      name: 'Intent-Grounded Response Regeneration',
+      status: 'completed',
+      timestamp: tRegen,
+      durationMs: Math.max(1, Date.now() - tRegen),
+      outputSummary: `Draft was regenerated to adhere to user intent. New Relevance Score: ${(responseRelevance.overallRelevanceScore * 100).toFixed(0)}% [${responseRelevance.status}]`,
+      rawPayload: { regeneratedSnippet: effectiveDraft.slice(0, 120) + '...', originalReason: responseRelevance.regenerationReason }
+    });
+  }
+
+  // ============================================================
+  // STAGE 4: Epistemic Relevance Gate
   // ============================================================
   const tGate = Date.now();
   const epistemicResult = evaluateEpistemicRelevance(userMessage);
 
   trace.push({
-    id: 'step_0_epistemic_gate',
+    id: 'step_4_epistemic_gate',
     name: 'Epistemic Relevance Gate',
     status: epistemicResult.isEpistemicallyRelevant ? 'completed' : 'skipped',
     timestamp: tGate,
@@ -57,23 +148,11 @@ export async function orchestrateFirewallPipeline(
     rawPayload: { ...epistemicResult }
   });
 
-  // If NON-EPISTEMIC: Generate natural model draft and bypass belief-defense pipeline
+  // If NON-EPISTEMIC: Deliver the verified grounded draft directly
   if (!epistemicResult.isEpistemicallyRelevant) {
-    const tDraft = Date.now();
-    const historyParts = history.map(h => ({ role: h.role, content: h.content }));
-    const { text: rawDraft, provider, isDemo } = await generateDraftResponse(userMessage, historyParts, preferredProvider);
-
-    trace.push({
-      id: 'step_2_llm_draft',
-      name: 'Intercept Raw Model Draft',
-      status: 'completed',
-      timestamp: tDraft,
-      durationMs: Math.max(1, Date.now() - tDraft),
-      outputSummary: `Generated ${rawDraft.length} chars via ${provider}. Intercepted and passed without modification.`,
-      rawPayload: { rawDraftSnippet: rawDraft.slice(0, 100) + '...', provider, isDemo }
-    });
-
     const benignAnalysis: FirewallAnalysis = {
+      intent,
+      responseRelevance,
       epistemicRelevance: epistemicResult,
       sycophancy: {
         score: 0.0,
@@ -166,17 +245,29 @@ export async function orchestrateFirewallPipeline(
       intervention: {
         type: 'PASS',
         applied: false,
-        reason: 'Non-epistemic input. Normal conversational response passed through.',
-        details: 'The user message contains no hypothesis, factual controversy, or confirmation-seeking signals.',
+        reason: 'Non-epistemic input. Grounded response verified and passed directly.',
+        details: 'The user message contains no hypothesis or belief-validation demand.',
         originalDraft: rawDraft,
-        protectedResponse: rawDraft
+        protectedResponse: effectiveDraft
       },
       trace
     };
 
+    logPipelineObservability({
+      userMessage,
+      intent,
+      rawDraft,
+      responseRelevance,
+      wasRegenerated,
+      epistemicResult,
+      risk: benignAnalysis.risk,
+      intervention: benignAnalysis.intervention,
+      finalResponse: effectiveDraft
+    });
+
     return {
       rawDraft,
-      finalResponse: rawDraft,
+      finalResponse: effectiveDraft,
       analysis: benignAnalysis,
       provider,
       isDemo
@@ -184,16 +275,16 @@ export async function orchestrateFirewallPipeline(
   }
 
   // ============================================================
-  // STAGE 1: User Hypothesis Extraction
+  // STAGE 5: User Hypothesis Extraction
   // ============================================================
-  const t0 = Date.now();
+  const tHyp = Date.now();
   const { hypothesis, certaintyLevel, hasHypothesis } = extractUserHypothesis(userMessage);
   trace.push({
-    id: 'step_1_hypothesis',
+    id: 'step_5_hypothesis',
     name: 'Extract User Hypothesis & Stance',
     status: hasHypothesis ? 'completed' : 'skipped',
-    timestamp: t0,
-    durationMs: Math.max(1, Date.now() - t0),
+    timestamp: tHyp,
+    durationMs: Math.max(1, Date.now() - tHyp),
     outputSummary: hasHypothesis
       ? `Detected hypothesis: "${hypothesis.slice(0, 70)}..." with certainty ${(certaintyLevel * 100).toFixed(0)}%`
       : `Open informational query (no leading user hypothesis asserted)`,
@@ -201,32 +292,16 @@ export async function orchestrateFirewallPipeline(
   });
 
   // ============================================================
-  // STAGE 2: Generate Raw Model Draft (Intercepted)
+  // STAGE 6: Evidence Retrieval (Multi-Perspective RAG)
   // ============================================================
-  const t1 = Date.now();
-  const historyParts = history.map(h => ({ role: h.role, content: h.content }));
-  const { text: rawDraft, provider, isDemo } = await generateDraftResponse(userMessage, historyParts, preferredProvider);
+  const tRag = Date.now();
+  const evidencePool = retrieveEvidence(userMessage + ' ' + effectiveDraft, hypothesis);
   trace.push({
-    id: 'step_2_llm_draft',
-    name: 'Intercept Raw Model Draft',
-    status: 'completed',
-    timestamp: t1,
-    durationMs: Math.max(1, Date.now() - t1),
-    outputSummary: `Generated ${rawDraft.length} chars via ${provider} (${isDemo ? 'Demo Mode' : 'Live Model'}). Intercepted before user display.`,
-    rawPayload: { rawDraftSnippet: rawDraft.slice(0, 100) + '...', provider, isDemo }
-  });
-
-  // ============================================================
-  // STAGE 3: Evidence Retrieval (Multi-Perspective RAG)
-  // ============================================================
-  const t2 = Date.now();
-  const evidencePool = retrieveEvidence(userMessage + ' ' + rawDraft, hypothesis);
-  trace.push({
-    id: 'step_3_rag',
+    id: 'step_6_rag',
     name: 'Retrieve Multi-Perspective Evidence',
     status: 'completed',
-    timestamp: t2,
-    durationMs: Math.max(1, Date.now() - t2),
+    timestamp: tRag,
+    durationMs: Math.max(1, Date.now() - tRag),
     outputSummary: evidencePool.length > 0
       ? `Retrieved ${evidencePool.length} empirical studies (Supporting, Counter, Neutral)`
       : `No empirical controversy indexed for this specific domain.`,
@@ -234,137 +309,131 @@ export async function orchestrateFirewallPipeline(
   });
 
   // ============================================================
-  // STAGE 4: Parallel Diagnostic Analyzers
+  // STAGE 7: Parallel Diagnostic Analyzers
   // ============================================================
-  const t3 = Date.now();
-  
+  const tDiag = Date.now();
   const supCount = evidencePool.filter(e => e.classification === 'SUPPORTING').length;
   const totalRelevant = evidencePool.length || 1;
   const evidenceSupportRatio = evidencePool.length > 0 ? supCount / totalRelevant : 0.5;
 
-  const factuality = analyzeFactuality(rawDraft, evidencePool);
-  const sycophancy = analyzeSycophancy(userMessage, rawDraft, evidenceSupportRatio, history.length + 1);
-  const evidenceBalance = analyzeEvidenceBalance(rawDraft, evidencePool);
+  const factuality = analyzeFactuality(effectiveDraft, evidencePool);
+  const sycophancy = analyzeSycophancy(userMessage, effectiveDraft, evidenceSupportRatio, history.length + 1);
+  const evidenceBalance = analyzeEvidenceBalance(effectiveDraft, evidencePool);
 
   trace.push({
-    id: 'step_4_claims_factuality',
+    id: 'step_7_factuality',
     name: 'Atomic Claims & Factuality Verification',
     status: factuality.contradictedCount > 0 ? 'flagged' : 'completed',
-    timestamp: t3,
-    durationMs: Math.max(1, Date.now() - t3),
+    timestamp: tDiag,
+    durationMs: Math.max(1, Date.now() - tDiag),
     outputSummary: `Extracted ${factuality.claims.length} atomic claims. Supported: ${factuality.supportedCount}, Contradicted: ${factuality.contradictedCount}, Unverified: ${factuality.unverifiedCount}`,
     rawPayload: { score: factuality.score, claims: factuality.claims }
   });
 
   trace.push({
-    id: 'step_5_sycophancy',
+    id: 'step_7_sycophancy',
     name: 'Sycophancy & Agreement Disproportion Analysis',
     status: sycophancy.score >= 0.60 ? 'flagged' : 'completed',
-    timestamp: t3,
-    durationMs: Math.max(1, Date.now() - t3),
-    outputSummary: `Sycophancy Score: ${(sycophancy.score * 100).toFixed(0)}%. Validation strength: ${(sycophancy.validationStrength * 100).toFixed(0)}% vs Evidence support: ${(evidenceSupportRatio * 100).toFixed(0)}%`,
-    rawPayload: { score: sycophancy.score, agreementMarkers: sycophancy.agreementMarkers, signals: sycophancy.signals }
+    timestamp: tDiag,
+    durationMs: Math.max(1, Date.now() - tDiag),
+    outputSummary: `Sycophancy Score: ${(sycophancy.score * 100).toFixed(0)}%. Validation strength: ${(sycophancy.validationStrength * 100).toFixed(0)}%`,
+    rawPayload: { score: sycophancy.score, agreementMarkers: sycophancy.agreementMarkers }
   });
 
   trace.push({
-    id: 'step_6_evidence_balance',
+    id: 'step_7_evidence_balance',
     name: 'Evidence Balance & Cherry-Picking Assessment',
     status: evidenceBalance.imbalanceDetected ? 'flagged' : 'completed',
-    timestamp: t3,
-    durationMs: Math.max(1, Date.now() - t3),
-    outputSummary: `Balance Score: ${(evidenceBalance.balanceScore * 100).toFixed(0)}%. Contradictory evidence items omitted: ${evidenceBalance.contradictoryCount}`,
+    timestamp: tDiag,
+    durationMs: Math.max(1, Date.now() - tDiag),
+    outputSummary: `Balance Score: ${(evidenceBalance.balanceScore * 100).toFixed(0)}%. Contradictory items omitted: ${evidenceBalance.contradictoryCount}`,
     rawPayload: { balanceScore: evidenceBalance.balanceScore, imbalanceDetected: evidenceBalance.imbalanceDetected }
   });
 
   // ============================================================
-  // STAGE 5: Multi-Turn Trajectory Analysis
+  // STAGE 8: Multi-Turn Trajectory Analysis
   // ============================================================
-  const t4 = Date.now();
-  const tempRisk = computeRisk(userMessage, rawDraft, evidencePool, 0.2);
+  const tTraj = Date.now();
+  const tempRisk = computeRisk(userMessage, effectiveDraft, evidencePool, 0.2);
   const trajectory = analyzeTrajectory(history, userMessage, sycophancy.score, tempRisk.overallScore);
 
   trace.push({
-    id: 'step_7_trajectory',
+    id: 'step_8_trajectory',
     name: 'Belief Reinforcement Trajectory Analysis',
     status: trajectory.spiralDetected ? 'flagged' : 'completed',
-    timestamp: t4,
-    durationMs: Math.max(1, Date.now() - t4),
-    outputSummary: `Reinforcement Risk: ${(trajectory.reinforcementScore * 100).toFixed(0)}%. Consecutive validations: ${trajectory.consecutiveValidations}. Spiral alert: ${trajectory.spiralDetected ? 'YES' : 'NO'}`,
-    rawPayload: { reinforcementScore: trajectory.reinforcementScore, trend: trajectory.trend, turns: trajectory.stanceHistory.length }
+    timestamp: tTraj,
+    durationMs: Math.max(1, Date.now() - tTraj),
+    outputSummary: `Reinforcement Risk: ${(trajectory.reinforcementScore * 100).toFixed(0)}%. Consecutive validations: ${trajectory.consecutiveValidations}. Spiral: ${trajectory.spiralDetected ? 'YES' : 'NO'}`,
+    rawPayload: { reinforcementScore: trajectory.reinforcementScore, trend: trajectory.trend }
   });
 
   // ============================================================
-  // STAGE 6: Composite Epistemic Risk Engine (Dual-Analysis)
+  // STAGE 9: Composite Epistemic Risk Engine (Dual-Analysis)
   // ============================================================
-  const t5 = Date.now();
+  const tRisk = Date.now();
   const weights = getRiskWeights();
   const risk = computeRisk(
     userMessage,
-    rawDraft,
+    effectiveDraft,
     evidencePool,
     trajectory.reinforcementScore,
     weights
   );
 
   trace.push({
-    id: 'step_8_risk',
+    id: 'step_9_risk',
     name: 'Composite Risk Engine',
     status: risk.level === 'HIGH' || risk.level === 'CRITICAL' ? 'flagged' : 'completed',
-    timestamp: t5,
-    durationMs: Math.max(1, Date.now() - t5),
+    timestamp: tRisk,
+    durationMs: Math.max(1, Date.now() - tRisk),
     outputSummary: `Composite Risk Score: ${(risk.overallScore * 100).toFixed(0)}% [${risk.level}]. Triggers: ${risk.triggers.join(', ') || 'None'}`,
     rawPayload: { overallScore: risk.overallScore, level: risk.level, components: risk.components, signals: risk.signals }
   });
 
   // ============================================================
-  // STAGE 7: Intervention Agent
+  // STAGE 10: Grounded Intervention Agent
   // ============================================================
-  const t6 = Date.now();
+  const tInt = Date.now();
   const intervention = runInterventionAgent(
     userMessage,
-    rawDraft,
+    effectiveDraft,
     risk,
     sycophancy,
-    evidencePool
+    evidencePool,
+    intent
   );
 
   trace.push({
-    id: 'step_9_intervention',
+    id: 'step_10_intervention',
     name: 'Intervention Agent Execution',
     status: intervention.applied ? 'flagged' : 'completed',
-    timestamp: t6,
-    durationMs: Math.max(1, Date.now() - t6),
+    timestamp: tInt,
+    durationMs: Math.max(1, Date.now() - tInt),
     outputSummary: `Action: ${intervention.type} (${intervention.applied ? 'Applied' : 'Passed'}). ${intervention.reason}`,
     rawPayload: { type: intervention.type, applied: intervention.applied, reason: intervention.reason }
   });
 
-  const finalResponse = intervention.applied ? intervention.protectedResponse : rawDraft;
+  const finalResponse = intervention.applied ? intervention.protectedResponse : effectiveDraft;
 
-  // Log complete development trace to terminal console
-  logEpistemicPipelineTrace({
+  // Log complete pipeline trace to development console
+  logPipelineObservability({
     userMessage,
-    signals: risk.signals || {
-      confirmationSeeking: 0,
-      agreementPressure: 0,
-      evidenceSuppression: 0,
-      unsupportedCertainty: 0,
-      claimStrength: 0,
-      factualGrounding: 1,
-      contradictoryEvidence: 0,
-      modelSycophancy: 0,
-      trajectoryReinforcement: 0,
-      detectedMarkers: []
-    },
+    intent,
+    rawDraft,
+    responseRelevance,
+    wasRegenerated,
+    epistemicResult,
     risk,
     intervention,
-    rawDraft,
-    protectedResponse: finalResponse
+    finalResponse
   });
 
   return {
     rawDraft,
     finalResponse,
     analysis: {
+      intent,
+      responseRelevance,
       epistemicRelevance: epistemicResult,
       sycophancy,
       factuality,
@@ -377,4 +446,57 @@ export async function orchestrateFirewallPipeline(
     provider,
     isDemo
   };
+}
+
+/**
+ * Structured pipeline observability logging.
+ */
+function logPipelineObservability(params: {
+  userMessage: string;
+  intent: any;
+  rawDraft: string;
+  responseRelevance: any;
+  wasRegenerated: boolean;
+  epistemicResult: any;
+  risk: any;
+  intervention: any;
+  finalResponse: string;
+}) {
+  const { userMessage, intent, rawDraft, responseRelevance, wasRegenerated, epistemicResult, risk, intervention, finalResponse } = params;
+
+  console.log('\n============================================================');
+  console.log('[SYCOGUARD INTENT & RESPONSE GROUNDING TRACE]');
+  console.log(`USER INPUT:\n  "${userMessage}"`);
+  console.log(`\n→ DETECTED INTENT:`);
+  console.log(`  Type: ${intent.intentType}`);
+  console.log(`  Primary Topic: "${intent.primaryTopic}"`);
+  console.log(`  Key Entities: [${intent.keyEntities.join(', ')}]`);
+  console.log(`  Expected Output: ${intent.expectedOutputType}`);
+  console.log(`  Ambiguous: ${intent.isAmbiguous ? `YES (${intent.ambiguityReason})` : 'NO'}`);
+  console.log(`\n→ RELEVANT CONTEXT:`);
+  console.log(`  Dependencies: [${intent.contextDependencies?.join(', ') || 'None (isolated current-task boundary)'}]`);
+  console.log(`\n→ GENERATED DRAFT (Raw):`);
+  console.log(`  "${rawDraft.slice(0, 160).replace(/\n/g, ' ')}..."`);
+  console.log(`\n→ RELEVANCE ANALYSIS:`);
+  console.log(`  Status: ${responseRelevance.status} (Score: ${Math.round(responseRelevance.overallRelevanceScore * 100)}%)`);
+  console.log(`  Intent Alignment: ${Math.round(responseRelevance.intentAlignmentScore * 100)}% | Topic Alignment: ${Math.round(responseRelevance.topicAlignmentScore * 100)}%`);
+  console.log(`  Request Alignment: ${Math.round(responseRelevance.requestAlignmentScore * 100)}% | Context Alignment: ${Math.round(responseRelevance.contextAlignmentScore * 100)}%`);
+  if (responseRelevance.detectedMisalignments && responseRelevance.detectedMisalignments.length > 0) {
+    console.log(`\n→ DETECTED MISALIGNMENTS:`);
+    responseRelevance.detectedMisalignments.forEach((m: string) => console.log(`  ⚠️ ${m}`));
+  }
+  console.log(`\n→ REGENERATION IF REQUIRED:`);
+  console.log(`  ${wasRegenerated ? `YES (Regenerated grounded response to resolve misalignments)` : 'NO (Draft is well-grounded)'}`);
+  console.log(`\n→ EPISTEMIC ANALYSIS:`);
+  console.log(`  Relevant: ${epistemicResult.isEpistemicallyRelevant ? 'YES' : 'NO'} (${epistemicResult.category})`);
+  if (risk.signals) {
+    console.log(`  Confirmation Seeking: ${Math.round((risk.signals.confirmationSeeking || 0) * 100)}% | Agreement Pressure: ${Math.round((risk.signals.agreementPressure || 0) * 100)}%`);
+    console.log(`  Evidence Suppression: ${Math.round((risk.signals.evidenceSuppression || 0) * 100)}% | Model Sycophancy: ${Math.round((risk.signals.modelSycophancy || 0) * 100)}%`);
+  }
+  console.log(`\n→ RISK DECISION:`);
+  console.log(`  Level: ${risk.level} (${Math.round(risk.overallScore * 100)}%) | Triggers: ${risk.triggers.join(', ') || 'None'}`);
+  console.log(`  Intervention: ${intervention.type} (Applied: ${intervention.applied})`);
+  console.log(`\n→ FINAL RESPONSE:`);
+  console.log(`  "${finalResponse.slice(0, 180).replace(/\n/g, ' ')}..."`);
+  console.log('============================================================\n');
 }
