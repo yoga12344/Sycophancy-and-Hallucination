@@ -85,7 +85,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const latestAssistantAnalysis = messages.filter(m => m.role === 'assistant').slice(-1)[0]?.analysis || activeAnalysis;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col h-full bg-transparent overflow-hidden">
       
       {/* Top Banner / Loop Visualizer Toggle */}
       <div className="px-4 py-2.5 border-b border-white/[0.08] bg-black/20 backdrop-blur-md shrink-0">

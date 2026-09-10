@@ -44,9 +44,9 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
 
   if (isLoading) {
     return (
-      <div className="w-full lg:w-96 bg-zinc-950 border-l border-zinc-800 p-6 flex flex-col items-center justify-center text-zinc-400 space-y-4">
-        <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-zinc-400 animate-spin" />
+      <div className="w-full lg:w-96 glass-panel border-t lg:border-t-0 lg:border-l border-white/[0.08] p-6 flex flex-col items-center justify-center text-zinc-400 space-y-4 h-full">
+        <div className="w-10 h-10 rounded-xl glass-card flex items-center justify-center">
+          <Shield className="w-5 h-5 text-zinc-300 animate-spin" />
         </div>
         <div className="text-center">
           <h4 className="text-xs font-semibold text-zinc-200">Evaluating Epistemic Pipeline...</h4>
