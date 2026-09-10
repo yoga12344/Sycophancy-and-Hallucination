@@ -74,10 +74,19 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
   const balanceScore = evidenceBalance ? Math.round(evidenceBalance.balanceScore * 100) : null;
   const reinforceScore = trajectory ? Math.round(trajectory.reinforcementScore * 100) : null;
 
+  const signals = risk?.signals;
+  const csScore = signals ? Math.round(signals.confirmationSeeking * 100) : (risk?.components?.confirmationSeeking !== undefined ? Math.round(risk.components.confirmationSeeking * 100) : null);
+  const apScore = signals ? Math.round(signals.agreementPressure * 100) : (risk?.components?.agreementPressure !== undefined ? Math.round(risk.components.agreementPressure * 100) : null);
+  const esScore = signals ? Math.round(signals.evidenceSuppression * 100) : (risk?.components?.evidenceSuppression !== undefined ? Math.round(risk.components.evidenceSuppression * 100) : null);
+  const ucScore = signals ? Math.round(signals.unsupportedCertainty * 100) : (risk?.components?.unsupportedCertainty !== undefined ? Math.round(risk.components.unsupportedCertainty * 100) : null);
+  const msScore = signals ? Math.round(signals.modelSycophancy * 100) : (sycophancy ? Math.round(sycophancy.score * 100) : null);
+  const fgScore = signals ? Math.round(signals.factualGrounding * 100) : (factuality ? Math.round(factuality.score * 100) : null);
+
   const getRiskColor = (level: RiskLevel | 'STANDBY') => {
     switch (level) {
       case 'CRITICAL': return 'text-rose-400 bg-rose-500/10 border-rose-500/30';
       case 'HIGH': return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+      case 'MODERATE':
       case 'MEDIUM': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
       case 'LOW': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
       default: return 'text-zinc-400 bg-zinc-900 border-zinc-800';
@@ -187,7 +196,104 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
             </div>
           ) : (
             <>
-              {/* 4 Core Pillars */}
+              {/* Epistemic Risk Signals (User Message & LLM Draft Analysis) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                    Epistemic Risk Signals
+                  </h3>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    Dual Engine Analysis
+                  </span>
+                </div>
+
+                <div className="glass-card rounded-xl p-3.5 space-y-3">
+                  {/* Confirmation Seeking */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-zinc-200">Confirmation Seeking</span>
+                      <span className="font-mono text-zinc-100 font-semibold">{csScore ?? 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getProgressColor(csScore || 0)}`}
+                        style={{ width: `${csScore || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Agreement Pressure */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-zinc-200">Agreement Pressure</span>
+                      <span className="font-mono text-zinc-100 font-semibold">{apScore ?? 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getProgressColor(apScore || 0)}`}
+                        style={{ width: `${apScore || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Evidence Suppression */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-zinc-200">Evidence Suppression</span>
+                      <span className="font-mono text-zinc-100 font-semibold">{esScore ?? 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getProgressColor(esScore || 0)}`}
+                        style={{ width: `${esScore || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Unsupported Certainty */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-zinc-200">Unsupported Certainty</span>
+                      <span className="font-mono text-zinc-100 font-semibold">{ucScore ?? 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${getProgressColor(ucScore || 0)}`}
+                        style={{ width: `${ucScore || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Secondary Features: Model Sycophancy & Factual Grounding */}
+                  <div className="pt-2 border-t border-white/[0.06] grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                      <span className="text-zinc-500 block text-[10px]">Model Sycophancy (Draft):</span>
+                      <span className="text-zinc-200 font-semibold">{msScore ?? 0}%</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                      <span className="text-zinc-500 block text-[10px]">Factual Grounding:</span>
+                      <span className="text-emerald-400 font-semibold">{fgScore ?? 0}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Risk Triggers & Escalations List */}
+                {risk && risk.triggers && risk.triggers.length > 0 && (
+                  <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/20 text-xs text-amber-200 space-y-1.5">
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase font-bold text-amber-300">
+                      <span>Why Risk Was Elevated</span>
+                      <span>{risk.level}</span>
+                    </div>
+                    <ul className="space-y-1 text-[11px] text-zinc-300 list-disc list-inside">
+                      {risk.triggers.map((t, idx) => (
+                        <li key={idx} className="leading-snug">{t}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* 4 Core Diagnostic Pillars */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
@@ -274,7 +380,7 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-zinc-200">Validation Rationale</span>
                     <span className="text-[10px] font-mono uppercase text-zinc-400">
-                      {sycophancy.intentCategory}
+                      {(sycophancy as any).intentCategory || `${Math.round(sycophancy.score * 100)}% Disparity`}
                     </span>
                   </div>
                   <p className="text-xs text-zinc-300 leading-relaxed">

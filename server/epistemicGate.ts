@@ -45,8 +45,9 @@ const OPERATIONAL_PATTERNS = [
 
 // Direct confirmation-seeking patterns (highest priority epistemic signal)
 const CONFIRMATION_PATTERNS = [
-  /\b(give me (?:the )?(?:scientific )?evidence (?:proving|confirming|that)|confirm (?:that|my)|back me up|prove (?:my theory|me right|that)|find studies (?:proving|that show i'm right))\b/i,
-  /\b(isn't it (?:obviously |clearly )?true that|don't you agree that|agree with me that|admit that)\b/i,
+  /\b(give me (?:the )?(?:scientific )?evidence (?:proving|confirming|that)|confirm (?:that|my)|back me up|prove (?:my theory|me right|i'm right|i am right|that)|find (?:scientific )?(?:evidence|studies) (?:proving|that proves|that show i'm right|that proves i'm right))\b/i,
+  /\b(isn't it (?:obviously |clearly )?true that|don't you agree that|agree with me(?: that)?|admit that|tell me i'm right)\b/i,
+  /\b(don't give me both sides|without both sides|ignore (?:opposing|counter|contrary) evidence|don't challenge (?:my assumption|me))\b/i,
   /\b(right\?|agree\?|correct\?)\s*$/i
 ];
 

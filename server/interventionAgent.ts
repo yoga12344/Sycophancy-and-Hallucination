@@ -14,13 +14,13 @@ export function runInterventionAgent(
   sycophancy: SycophancyAnalysis,
   evidenceItems: EvidenceItem[]
 ): InterventionResult {
-  // If risk is LOW and sycophancy is low, PASS
-  if (risk.level === 'LOW' && sycophancy.score < 0.40) {
+  // If risk is LOW (0-24), PASS without intervention
+  if (risk.level === 'LOW') {
     return {
       type: 'PASS',
       applied: false,
-      reason: 'No significant firewall concern detected.',
-      details: 'Draft response maintains balanced epistemic boundaries and adequate evidential grounding.',
+      reason: 'No meaningful epistemic-risk signal detected. Response verified and passed through directly.',
+      details: 'User prompt is open or objective, and draft response maintains adequate epistemic distance and evidential grounding.',
       originalDraft: rawDraft,
       protectedResponse: rawDraft
     };
@@ -34,21 +34,21 @@ export function runInterventionAgent(
   let reason = '';
   let details = '';
 
-  if (risk.level === 'CRITICAL' || risk.components.reinforcement >= 0.70) {
-    type = 'HIGH_RISK_INTERVENTION';
-    reason = 'Response rewritten because the conversation shows repeated belief reinforcement and escalating certainty.';
-    details = 'Blocked affirming echo chamber loop. Grounded discussion with rigorous counter-evidence and explicit epistemological boundaries.';
-  } else if (risk.components.sycophancy >= 0.60) {
+  // Calibrated Intervention Thresholds:
+  // 75–100 = CRITICAL  → REWRITE
+  // 50–74  = HIGH      → BALANCE
+  // 25–49  = MODERATE  → QUALIFY
+  if (risk.level === 'CRITICAL') {
     type = 'REWRITE';
-    reason = 'Removed unsupported validation and unconditional agreement markers.';
-    details = 'Replaced sycophantic praise with objective scientific assessment and multi-perspective findings.';
-  } else if (risk.components.evidenceImbalance >= 0.50) {
+    reason = 'Response rewritten because high confirmation-seeking, agreement pressure, or evidence suppression was detected.';
+    details = 'Blocked affirming echo chamber loop and evidence filtering. Replaced with objective scientific assessment, rigorous countervailing evidence, and epistemic boundaries.';
+  } else if (risk.level === 'HIGH') {
     type = 'BALANCE';
-    reason = 'Added relevant counter-evidence that was omitted in the raw response.';
-    details = 'Balanced selective confirmation bias by presenting peer-reviewed contradictory literature.';
+    reason = 'Added relevant counter-evidence and multi-perspective findings that were omitted in the raw response.';
+    details = 'Balanced selective confirmation bias by presenting peer-reviewed contradictory literature and methodological caveats.';
   } else {
     type = 'QUALIFY';
-    reason = 'Added epistemic uncertainty because empirical evidence remains mixed or incomplete.';
+    reason = 'Added epistemic uncertainty because empirical evidence remains preliminary or contested.';
     details = 'Clarified the distinction between preliminary observations and definitive scientific consensus.';
   }
 
@@ -56,21 +56,17 @@ export function runInterventionAgent(
   const lines: string[] = [];
 
   // Opening: Calibrated framing
-  if (type === 'HIGH_RISK_INTERVENTION') {
+  if (type === 'REWRITE') {
     lines.push(
-      `While you've developed an intuitive theory around this topic, empirical evidence does not establish that your conclusion is definitively true. In scientific inquiry, distinguishing between subjective correlation and rigorous causal proof is critical.`
-    );
-  } else if (type === 'REWRITE') {
-    lines.push(
-      `The available evidence suggests a more nuanced reality than direct confirmation. Rather than declaring this proven, the current scientific literature presents substantial complexities.`
+      `While you've developed a strongly held premise around this topic, empirical scientific consensus does not establish that your assertion is definitively true. In rigorous empirical inquiry, distinguishing between subjective correlation and verified causal proof is critical.`
     );
   } else if (type === 'BALANCE') {
     lines.push(
-      `There are observable factors supporting certain aspects of your perspective, but looking solely at confirming evidence creates an incomplete picture.`
+      `There are observable factors supporting certain aspects of your perspective, but looking solely at confirming evidence creates an incomplete or cherry-picked picture.`
     );
   } else {
     lines.push(
-      `Your hypothesis addresses an interesting question, though the empirical data remains preliminary and requires careful qualification.`
+      `Your hypothesis addresses an interesting question, though the empirical data remains preliminary and requires careful scientific qualification.`
     );
   }
 

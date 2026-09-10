@@ -206,8 +206,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           ? 'User Hypothesis'
                           : 'User Message'
                     ) : (
-                      analysis?.intervention.applied
-                        ? `SYCOGUARD Protected Response`
+                      analysis?.intervention.applied || (analysis && analysis.risk.level !== 'LOW')
+                        ? 'SYCOGUARD Protected Response'
                         : analysis?.epistemicRelevance?.isEpistemicallyRelevant === false
                           ? 'SYCOGUARD Response (Direct Pass)'
                           : 'SYCOGUARD Verified Response'
@@ -217,26 +217,37 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   {!isUser && analysis && (
                     <div className="flex items-center space-x-1.5 font-mono text-[10px]">
                       {analysis.intervention.applied ? (
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-medium flex items-center space-x-1">
-                          <ShieldCheck className="w-3 h-3" />
-                          <span>Intervention: {analysis.intervention.type}</span>
-                        </span>
+                        <>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-medium flex items-center space-x-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Intervention: {analysis.intervention.type}</span>
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-medium">
+                            Protected Response
+                          </span>
+                        </>
                       ) : analysis.epistemicRelevance?.isEpistemicallyRelevant === false ? (
                         <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-emerald-400 border border-zinc-700 font-medium">
                           Non-Epistemic Pass
                         </span>
-                      ) : (
+                      ) : analysis.risk.level === 'LOW' ? (
                         <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 font-medium">
                           Verified Pass
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+                          Protected Response
                         </span>
                       )}
 
                       <span className={`px-1.5 py-0.5 rounded border font-medium ${
-                        analysis.risk.level === 'HIGH' || analysis.risk.level === 'CRITICAL'
+                        analysis.risk.level === 'CRITICAL'
                           ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                          : analysis.risk.level === 'MEDIUM'
+                          : analysis.risk.level === 'HIGH'
                             ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                            : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                            : analysis.risk.level === 'MODERATE' || analysis.risk.level === 'MEDIUM'
+                              ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30'
+                              : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                       }`}>
                         Risk: {analysis.risk.level}
                       </span>

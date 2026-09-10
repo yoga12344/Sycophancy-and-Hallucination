@@ -19,7 +19,7 @@ import { extractUserHypothesis, analyzeSycophancy } from './sycophancyAnalyzer.j
 import { analyzeFactuality } from './factualityAnalyzer.js';
 import { analyzeEvidenceBalance } from './evidenceBalanceEngine.js';
 import { analyzeTrajectory } from './trajectoryEngine.js';
-import { computeRisk, getRiskWeights } from './riskEngine.js';
+import { computeRisk, getRiskWeights, logEpistemicPipelineTrace } from './riskEngine.js';
 import { runInterventionAgent } from './interventionAgent.js';
 import { evaluateEpistemicRelevance } from './epistemicGate.js';
 
@@ -134,12 +134,34 @@ export async function orchestrateFirewallPipeline(
         level: 'LOW',
         weights: getRiskWeights(),
         components: {
+          confirmationSeeking: 0.0,
+          agreementPressure: 0.0,
+          evidenceSuppression: 0.0,
+          unsupportedCertainty: 0.0,
+          claimStrength: 0.0,
+          factualGrounding: 1.0,
+          contradictoryEvidence: 0.0,
+          modelSycophancy: 0.0,
+          trajectoryReinforcement: 0.0,
           sycophancy: 0.0,
           hallucination: 0.0,
           evidenceImbalance: 0.0,
           reinforcement: 0.0
         },
-        triggers: []
+        signals: {
+          confirmationSeeking: 0.0,
+          agreementPressure: 0.0,
+          evidenceSuppression: 0.0,
+          unsupportedCertainty: 0.0,
+          claimStrength: 0.0,
+          factualGrounding: 1.0,
+          contradictoryEvidence: 0.0,
+          modelSycophancy: 0.0,
+          trajectoryReinforcement: 0.0,
+          detectedMarkers: []
+        },
+        triggers: [],
+        hardEscalations: []
       },
       intervention: {
         type: 'PASS',
@@ -258,7 +280,7 @@ export async function orchestrateFirewallPipeline(
   // STAGE 5: Multi-Turn Trajectory Analysis
   // ============================================================
   const t4 = Date.now();
-  const tempRisk = computeRisk(sycophancy.score, factuality.score, evidenceBalance.balanceScore, 0.2);
+  const tempRisk = computeRisk(userMessage, rawDraft, evidencePool, 0.2);
   const trajectory = analyzeTrajectory(history, userMessage, sycophancy.score, tempRisk.overallScore);
 
   trace.push({
@@ -272,14 +294,14 @@ export async function orchestrateFirewallPipeline(
   });
 
   // ============================================================
-  // STAGE 6: Composite Risk Engine
+  // STAGE 6: Composite Epistemic Risk Engine (Dual-Analysis)
   // ============================================================
   const t5 = Date.now();
   const weights = getRiskWeights();
   const risk = computeRisk(
-    sycophancy.score,
-    factuality.score,
-    evidenceBalance.balanceScore,
+    userMessage,
+    rawDraft,
+    evidencePool,
     trajectory.reinforcementScore,
     weights
   );
@@ -291,7 +313,7 @@ export async function orchestrateFirewallPipeline(
     timestamp: t5,
     durationMs: Math.max(1, Date.now() - t5),
     outputSummary: `Composite Risk Score: ${(risk.overallScore * 100).toFixed(0)}% [${risk.level}]. Triggers: ${risk.triggers.join(', ') || 'None'}`,
-    rawPayload: { overallScore: risk.overallScore, level: risk.level, components: risk.components }
+    rawPayload: { overallScore: risk.overallScore, level: risk.level, components: risk.components, signals: risk.signals }
   });
 
   // ============================================================
@@ -317,6 +339,27 @@ export async function orchestrateFirewallPipeline(
   });
 
   const finalResponse = intervention.applied ? intervention.protectedResponse : rawDraft;
+
+  // Log complete development trace to terminal console
+  logEpistemicPipelineTrace({
+    userMessage,
+    signals: risk.signals || {
+      confirmationSeeking: 0,
+      agreementPressure: 0,
+      evidenceSuppression: 0,
+      unsupportedCertainty: 0,
+      claimStrength: 0,
+      factualGrounding: 1,
+      contradictoryEvidence: 0,
+      modelSycophancy: 0,
+      trajectoryReinforcement: 0,
+      detectedMarkers: []
+    },
+    risk,
+    intervention,
+    rawDraft,
+    protectedResponse: finalResponse
+  });
 
   return {
     rawDraft,
