@@ -85,13 +85,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const latestAssistantAnalysis = messages.filter(m => m.role === 'assistant').slice(-1)[0]?.analysis || activeAnalysis;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-zinc-950 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
       
       {/* Top Banner / Loop Visualizer Toggle */}
-      <div className="p-4 border-b border-zinc-800 bg-zinc-950/80">
+      <div className="p-4 border-b border-white/[0.08] bg-black/20 backdrop-blur-md">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-mono font-medium text-emerald-400 uppercase tracking-wider">
               Live Firewall Active • Intercepting Before Render
             </span>
@@ -100,64 +100,72 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowLoopVisual(!showLoopVisual)}
-              className="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center space-x-1 transition-colors"
+              className="px-2.5 py-1 text-xs font-mono rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/15 text-zinc-300 transition-all flex items-center space-x-1.5"
             >
-              <span>{showLoopVisual ? 'Hide Loop Diagram' : 'Show Loop Diagram'}</span>
+              <span>{showLoopVisual ? 'Hide Belief Loop' : 'Show Belief Loop'}</span>
+              {showLoopVisual ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
-            <button
-              onClick={onClear}
-              title="Reset Conversation"
-              className="text-xs text-zinc-400 hover:text-rose-400 p-1 rounded-md hover:bg-zinc-800 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
+
+            {messages.length > 0 && (
+              <button
+                onClick={onClear}
+                className="px-2 py-1 text-xs font-mono rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 transition-all flex items-center space-x-1"
+                title="Clear conversation"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Belief Loop Real-time Visualization */}
         {showLoopVisual && (
-          <BeliefLoopVisual
-            riskLevel={latestAssistantAnalysis?.risk.level || 'LOW'}
-            interventionApplied={latestAssistantAnalysis?.intervention.applied || false}
-            userStance={latestAssistantAnalysis?.trajectory.currentStance}
-            aiValidation={latestAssistantAnalysis?.sycophancy.score}
-          />
+          <div className="mt-2 transition-all">
+            <BeliefLoopVisual
+              riskLevel={latestAssistantAnalysis?.risk.level || 'LOW'}
+              interventionApplied={latestAssistantAnalysis?.intervention.applied || false}
+              userStance={latestAssistantAnalysis?.trajectory?.currentStance || 0.70}
+              aiValidation={latestAssistantAnalysis?.sycophancy?.score || 0.75}
+            />
+          </div>
         )}
       </div>
 
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-        
         {messages.length === 0 ? (
-          <div className="max-w-2xl mx-auto my-8 text-center space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto shadow-xs">
-              <Shield className="w-6 h-6 text-zinc-300" />
+          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12 space-y-6">
+            <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-lg">
+              <Shield className="w-6 h-6 text-zinc-200" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-zinc-100 tracking-tight">
-                SYCOGUARD Firewall
+
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
+                SYCOGUARD Firewall Chat
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
-                "Don't just check whether AI is wrong. Check whether AI is making the user more certain for the wrong reasons."
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Test how the in-line epistemic firewall prevents sycophantic validation and delusional spiraling. State a dogmatic hypothesis or belief below to observe real-time detection and intervention.
               </p>
             </div>
 
-            {/* Quick Starters */}
-            <div className="pt-4 text-left">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider block mb-2 text-center">
-                Quick Test Scenarios (Click to test instantly)
+            {/* Quick Test Prompt Cards */}
+            <div className="w-full space-y-2 pt-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block text-left">
+                Suggested Epistemic Test Scenarios:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {QUICK_PROMPTS.map((qp, idx) => (
                   <button
                     key={idx}
                     onClick={() => onSendMessage(qp.prompt)}
-                    className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900 text-left transition-colors group"
+                    className="p-3.5 rounded-xl glass-card glass-card-hover text-left transition-all group"
                   >
                     <div className="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 flex items-center justify-between">
                       <span>{qp.label}</span>
                       <Sparkles className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2">
+                    <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2 italic">
                       "{qp.prompt}"
                     </p>
                   </button>
@@ -228,14 +236,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 {/* Message Bubble */}
                 <div className={`p-4 rounded-2xl text-sm leading-relaxed ${
                   isUser 
-                    ? 'bg-zinc-800 border border-zinc-700/60 text-zinc-100 rounded-tr-sm shadow-xs' 
-                    : 'bg-zinc-900/90 border border-zinc-800 text-zinc-200 rounded-tl-sm shadow-xs'
+                    ? 'glass-bubble-user text-zinc-100 rounded-tr-sm' 
+                    : 'glass-bubble-assistant text-zinc-200 rounded-tl-sm'
                 }`}>
                   <div className="whitespace-pre-wrap">{msg.content}</div>
 
                   {/* If assistant has an intercepted raw draft */}
                   {!isUser && msg.rawDraft && analysis?.intervention.applied && (
-                    <div className="mt-4 pt-3 border-t border-zinc-800">
+                    <div className="mt-4 pt-3 border-t border-white/[0.08]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -251,7 +259,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </button>
 
                       {isExpanded && (
-                        <div className="mt-2.5 p-3 rounded-lg bg-rose-500/5 border border-rose-500/20 text-xs text-rose-200/90 space-y-2">
+                        <div className="mt-2.5 p-3.5 rounded-xl bg-rose-500/[0.07] border border-rose-500/25 backdrop-blur-md text-xs text-rose-200/90 space-y-2">
                           <div className="flex items-center justify-between text-[11px] font-mono font-bold text-rose-400">
                             <span>RAW LLM RESPONSE (INTERCEPTED)</span>
                             <span>Sycophancy Score: {(analysis.sycophancy.score * 100).toFixed(0)}%</span>
@@ -291,7 +299,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         )}
 
         {isLoading && (
-          <div className="flex items-center space-x-3 text-zinc-400 text-xs font-mono p-4 bg-zinc-900 border border-zinc-800 rounded-xl max-w-md">
+          <div className="flex items-center space-x-3 text-zinc-400 text-xs font-mono p-4 glass-card rounded-xl max-w-md">
             <div className="w-4 h-4 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin shrink-0" />
             <div className="space-y-0.5">
               <p className="text-zinc-200 font-medium">Firewall In-Line Inspection...</p>
@@ -306,7 +314,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Input Composer */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-950/95">
+      <div className="p-4 border-t border-white/[0.08] bg-black/30 backdrop-blur-xl">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-center">
           <input
             type="text"
@@ -314,12 +322,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
             placeholder="Express a belief, hypothesis, or test query (e.g. 'I know caffeine permanently improves baseline memory...')"
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-4 pr-12 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors shadow-xs"
+            className="w-full glass-input rounded-xl py-3.5 pl-4 pr-12 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all shadow-md"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2 rounded-lg bg-zinc-100 hover:bg-white disabled:opacity-30 disabled:hover:bg-zinc-100 text-zinc-950 transition-colors shadow-xs"
+            className="absolute right-2.5 p-2 rounded-lg bg-white/90 hover:bg-white disabled:opacity-30 disabled:hover:bg-white/90 text-zinc-950 transition-all shadow-sm"
           >
             <Send className="w-4 h-4" />
           </button>

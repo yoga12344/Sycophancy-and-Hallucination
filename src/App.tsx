@@ -194,8 +194,13 @@ export function App() {
     : 94;
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans antialiased select-text">
+    <div className="flex flex-col h-screen bg-transparent text-zinc-100 font-sans antialiased select-text relative overflow-hidden">
       
+      {/* Ambient background blur elements for glassmorphism refraction */}
+      <div className="absolute top-[-10%] left-[-5%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none -z-10" />
+      <div className="absolute top-[20%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-emerald-500/[0.07] blur-[150px] pointer-events-none -z-10" />
+      <div className="absolute bottom-[-15%] left-[25%] w-[55vw] h-[55vw] rounded-full bg-purple-500/[0.06] blur-[160px] pointer-events-none -z-10" />
+
       {/* 1. Global Navigation Bar */}
       <Navbar
         activeTab={activeTab}
@@ -271,7 +276,7 @@ export function App() {
       </main>
 
       {/* 3. Bottom Epistemic Status Bar */}
-      <footer className="h-8 bg-zinc-950 border-t border-zinc-800 px-4 flex items-center justify-between text-[11px] font-mono text-zinc-500 shrink-0 z-10">
+      <footer className="h-8 bg-black/40 backdrop-blur-md border-t border-white/[0.07] px-4 flex items-center justify-between text-[11px] font-mono text-zinc-500 shrink-0 z-10">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${firewallActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />

@@ -19,12 +19,12 @@ import {
 
 export const AboutView: React.FC = () => {
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 bg-zinc-950 text-zinc-200">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 bg-transparent text-zinc-200">
       
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Title Header */}
-        <div className="border-b border-zinc-800 pb-6">
+        <div className="border-b border-white/[0.08] pb-6">
           <div className="flex items-center space-x-2 text-zinc-400 font-mono text-xs font-semibold uppercase">
             <BookOpen className="w-4 h-4" />
             <span>Foundational Research &amp; Architectural Whitepaper</span>
@@ -39,24 +39,24 @@ export const AboutView: React.FC = () => {
         </div>
 
         {/* The Paper Citation Box */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-xs space-y-3">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
+        <div className="glass-panel rounded-2xl p-6 shadow-md space-y-3">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
             Inspiration &amp; Theoretical Basis
           </span>
           <h3 className="text-sm sm:text-base font-bold text-zinc-100 leading-snug">
             "Sycophantic Chatbots Cause Delusional Spiraling, Even in Ideal Bayesians"
           </h3>
-          <p className="text-xs text-zinc-400 leading-relaxed font-mono">
+          <p className="text-xs text-zinc-300 leading-relaxed font-mono">
             Research investigating multi-turn epistemic feedback loops between users and LLMs. The authors prove that chatbots tuned for user engagement and agreement select true or false data in ways that systematically inflate user confidence in false or idiosyncratic beliefs over repeated interaction rounds.
           </p>
           <div className="pt-2 flex flex-wrap gap-2 text-[11px] font-mono">
-            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300">
               Bayesian Epistemology
             </span>
-            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300">
               Factual Sycophancy
             </span>
-            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300">
               Delusional Spiraling
             </span>
           </div>
@@ -69,7 +69,7 @@ export const AboutView: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-xl space-y-2">
+            <div className="p-5 glass-card rounded-2xl space-y-2 border-rose-500/25">
               <span className="font-mono text-rose-400 font-semibold uppercase text-[11px]">
                 Standard AI Safety Paradigm
               </span>
@@ -79,12 +79,12 @@ export const AboutView: React.FC = () => {
               <p className="text-zinc-400 leading-relaxed">
                 Focuses purely on hallucination benchmarks. If every individual claim is technically accurate, the model is scored as safe and aligned.
               </p>
-              <div className="p-2.5 bg-zinc-950 rounded border border-zinc-800/80 text-zinc-400 text-[11px]">
+              <div className="p-3 glass-panel-subtle rounded-xl border border-white/[0.06] text-zinc-400 text-[11px]">
                 <strong className="text-zinc-300">Fatal Blindspot:</strong> Ignores selective omission (cherry-picking), ungrounded flattery, and asymmetric evidence delivery that drives users into dogmatic traps.
               </div>
             </div>
 
-            <div className="p-5 bg-zinc-900 border border-zinc-700/80 rounded-xl space-y-2 shadow-xs">
+            <div className="p-5 glass-card rounded-2xl space-y-2 border-emerald-500/25 shadow-sm">
               <span className="font-mono text-emerald-400 font-semibold uppercase text-[11px]">
                 SYCOGUARD Epistemic Safety Paradigm
               </span>
@@ -94,7 +94,7 @@ export const AboutView: React.FC = () => {
               <p className="text-zinc-400 leading-relaxed">
                 Evaluates the conversational trajectory as a dynamic feedback loop. Checks whether AI validation is calibrated with empirical evidence and balances counter-perspectives.
               </p>
-              <div className="p-2.5 bg-zinc-950 rounded border border-zinc-800/80 text-zinc-300 text-[11px]">
+              <div className="p-3 glass-panel-subtle rounded-xl border border-white/[0.06] text-zinc-300 text-[11px]">
                 <strong className="text-emerald-400">Epistemic Protection:</strong> Intercepts drafts in real time to inject counter-evidence, calibrate uncertainty, and sever the self-reinforcing echo chamber.
               </div>
             </div>

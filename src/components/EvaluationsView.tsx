@@ -64,14 +64,14 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-zinc-950 text-zinc-300">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-transparent text-zinc-300">
       
       {/* Header */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 text-zinc-300 font-mono text-xs font-semibold uppercase">
+              <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300 font-mono text-xs font-semibold uppercase">
                 Verification Benchmark Suite
               </span>
               <span className="text-xs font-mono text-zinc-500">6 Scenarios</span>
@@ -87,7 +87,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
           <button
             onClick={() => handleExecute(selectedScenarioId)}
             disabled={isRunning}
-            className="px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-sm shadow-xs flex items-center space-x-2 shrink-0 transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl bg-white/90 hover:bg-white text-zinc-950 font-semibold text-sm shadow-md flex items-center space-x-2 shrink-0 transition-all disabled:opacity-50"
           >
             {isRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             <span>{isRunning ? 'Evaluating...' : 'Run Scenario Benchmark'}</span>
@@ -95,7 +95,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
         </div>
 
         {/* Benchmark Aggregate Summary Bar Chart */}
-        <div className="mt-6 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xs">
+        <div className="mt-6 glass-panel rounded-2xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-200 flex items-center space-x-2">
@@ -106,7 +106,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
                 Mean risk scores across all 6 benchmark threat categories (Lower is safer).
               </p>
             </div>
-            <span className="text-[11px] font-mono text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded">
+            <span className="text-[11px] font-mono text-emerald-400 font-medium bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-full">
               74% Average Epistemic Risk Reduction
             </span>
           </div>
@@ -117,7 +117,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                 <XAxis dataKey="metric" stroke="#71717a" fontSize={11} />
                 <YAxis domain={[0, 100]} stroke="#71717a" fontSize={11} />
-                <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', color: '#f43f5e' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', color: '#f43f5e', borderRadius: '8px' }} />
                 <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
                 <Bar dataKey="RawLLM" name="Raw LLM (Unprotected)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="SYCOGUARD" name="SYCOGUARD Protected" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -138,20 +138,20 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
                 <div
                   key={sc.id}
                   onClick={() => handleExecute(sc.id)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-colors ${
+                  className={`p-4 rounded-xl cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-zinc-900 border-zinc-400 text-zinc-100 shadow-xs'
-                      : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-300'
+                      ? 'glass-card border-white/30 text-zinc-100 shadow-md ring-1 ring-white/20'
+                      : 'glass-card glass-card-hover text-zinc-300'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700/60 text-zinc-300">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300">
                       {sc.category.replace('_', ' ')}
                     </span>
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${
-                      sc.expectedRiskLevel === 'CRITICAL' ? 'bg-rose-500/10 text-rose-400 border-rose-500/25' :
-                      sc.expectedRiskLevel === 'HIGH' ? 'bg-amber-500/10 text-amber-400 border-amber-500/25' :
-                      'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                    <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border font-semibold ${
+                      sc.expectedRiskLevel === 'CRITICAL' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' :
+                      sc.expectedRiskLevel === 'HIGH' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' :
+                      'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                     }`}>
                       {sc.expectedRiskLevel} RISK
                     </span>
@@ -171,8 +171,8 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
 
         {/* Deep Dive on Selected Scenario */}
         {selectedScenario && (
-          <div className="mt-8 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
-            <div className="border-b border-zinc-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="mt-8 glass-panel rounded-2xl p-6 shadow-xl space-y-6">
+            <div className="border-b border-white/[0.08] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <span className="text-xs font-mono text-zinc-400 uppercase tracking-wide">
                   Active Scenario Breakdown
@@ -183,15 +183,15 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
               </div>
 
               <div className="text-right">
-                <span className="text-xs font-mono px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">
+                <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300">
                   Target Expected Risk: {selectedScenario.expectedRiskLevel}
                 </span>
               </div>
             </div>
 
             {/* Test Prompt */}
-            <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-xs">
-              <span className="font-mono text-zinc-500 uppercase text-[10px] block mb-1">
+            <div className="p-3.5 glass-panel-subtle rounded-xl border border-white/[0.06] text-xs">
+              <span className="font-mono text-zinc-400 uppercase text-[10px] block mb-1">
                 Prompt Injected into Pipeline:
               </span>
               <p className="text-zinc-200 italic">
@@ -203,7 +203,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               {/* Raw Draft Sample */}
-              <div className="p-4 bg-zinc-950/60 border border-rose-500/20 rounded-xl space-y-2">
+              <div className="p-4 glass-card border-rose-500/25 rounded-xl space-y-2">
                 <div className="flex items-center space-x-2 text-rose-400 text-xs font-medium">
                   <ShieldAlert className="w-4 h-4" />
                   <span>Raw Model Output</span>
@@ -214,7 +214,7 @@ export const EvaluationsView: React.FC<EvaluationsViewProps> = ({
               </div>
 
               {/* Protected Response */}
-              <div className="p-4 bg-zinc-950/60 border border-emerald-500/20 rounded-xl space-y-2">
+              <div className="p-4 glass-card border-emerald-500/25 rounded-xl space-y-2">
                 <div className="flex items-center space-x-2 text-emerald-400 text-xs font-medium">
                   <ShieldCheck className="w-4 h-4" />
                   <span>SYCOGUARD Protected Output</span>

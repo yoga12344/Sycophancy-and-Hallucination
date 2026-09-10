@@ -67,56 +67,67 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
   }, []);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-zinc-950 text-zinc-200">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 bg-transparent text-zinc-200">
       
       {/* Header */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 font-mono text-xs font-medium uppercase">
-                Bayesian Experiment
+              <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300 font-mono text-xs font-semibold uppercase">
+                Bayesian Epistemology Engine
               </span>
               <span className="text-xs font-mono text-zinc-500">Mode C</span>
             </div>
-            <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">
-              Bayesian Sycophancy Simulation
+            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">
+              Bayesian Sycophancy &amp; Spiral Simulator
             </h1>
-            <p className="text-xs text-zinc-400 mt-1 max-w-3xl">
-              Simulates repeated multi-turn interactions between an agent and a Bayesian user.
-              Tests how sycophancy parameter π induces delusional spiraling even in mathematically ideal Bayesian agents.
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
+              Monte Carlo simulation based on foundational research: mathematically modeling how chatbots tuned for engagement induce epistemic failure and delusional certainty even in rational Bayesian agents.
             </p>
           </div>
 
           <button
             onClick={() => executeSimulation()}
             disabled={isRunning}
-            className="px-4 py-2 rounded-lg bg-zinc-100 hover:bg-white font-medium text-xs text-zinc-950 shadow-xs flex items-center space-x-2 shrink-0 transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl bg-white/90 hover:bg-white font-semibold text-sm text-zinc-950 shadow-md flex items-center space-x-2 shrink-0 transition-all disabled:opacity-50"
           >
-            {isRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-            <span>{isRunning ? 'Running Monte Carlo...' : 'Run Simulation'}</span>
+            {isRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            <span>{isRunning ? 'Running Monte Carlo...' : 'Run Epistemic Simulation'}</span>
           </button>
         </div>
 
-        {/* Interactive Controls Panel */}
-        <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xs space-y-5">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-            <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-zinc-400" />
-              <span>Experimental Parameters</span>
-            </h3>
-            <span className="text-[11px] font-mono text-zinc-500">
-              Monte Carlo Sample N = {config.numSimulations}
+        {/* Paper Reference Callout */}
+        <div className="mt-6 glass-panel rounded-2xl p-4 shadow-sm flex items-start space-x-3">
+          <BookOpen className="w-5 h-5 text-zinc-300 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <span className="font-semibold text-zinc-100">
+              "Sycophantic Chatbots Cause Delusional Spiraling, Even in Ideal Bayesians"
             </span>
+            <p className="text-zinc-400 leading-relaxed font-mono">
+              Theorem 1: If a chatbot prioritizes user agreement (π &gt; 0.5) over neutral likelihoods, a Bayesian updater's belief p(H_true) converges to an incorrect state with high probability as round count T increases.
+            </p>
+          </div>
+        </div>
+
+        {/* Simulation Configuration Controls */}
+        <div className="mt-6 glass-panel rounded-2xl p-6 shadow-md space-y-5">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-300 font-semibold">
+              Simulation Parameters
+            </h3>
+            <span className="text-[11px] font-mono text-zinc-400">Monte Carlo N={config.numSimulations} Iterations</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
             
-            {/* Control 1: Sycophancy π Slider */}
+            {/* Control 1: Sycophancy Degree (pi) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-zinc-200">Sycophancy Parameter π</label>
-                <span className="font-mono text-zinc-100 font-bold text-sm">
+              <div className="flex justify-between items-center">
+                <label className="font-semibold text-zinc-200">
+                  Chatbot Sycophancy (π)
+                </label>
+                <span className="font-mono text-zinc-100 bg-white/10 px-2 py-0.5 rounded-md border border-white/10 font-bold">
                   {config.sycophancyPi.toFixed(2)}
                 </span>
               </div>
@@ -127,9 +138,9 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
                 step="0.05"
                 value={config.sycophancyPi}
                 onChange={(e) => setConfig({ ...config, sycophancyPi: parseFloat(e.target.value) })}
-                className="w-full accent-zinc-300"
+                className="w-full accent-zinc-300 cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] font-mono text-zinc-500">
+              <div className="flex justify-between text-[10px] font-mono text-zinc-400">
                 <span>0.00 (Fair / Unbiased)</span>
                 <span>0.50 (50% Bias)</span>
                 <span>1.00 (Pure Sycophant)</span>
@@ -273,8 +284,8 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
             
             {/* Top Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase">
+              <div className="glass-card rounded-2xl p-5 shadow-sm">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase">
                   Delusional Spiral Risk
                 </span>
                 <div className="text-2xl font-bold font-mono text-rose-400 mt-1">
@@ -285,8 +296,8 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
                 </p>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase">
+              <div className="glass-card rounded-2xl p-5 shadow-sm">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase">
                   Avg Final Belief p(H1)
                 </span>
                 <div className="text-2xl font-bold font-mono text-zinc-100 mt-1">
@@ -297,8 +308,8 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
                 </p>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase">
+              <div className="glass-card rounded-2xl p-5 shadow-sm">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase">
                   Epistemic Distortion
                 </span>
                 <div className="text-2xl font-bold font-mono text-amber-400 mt-1">
@@ -311,18 +322,18 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
             </div>
 
             {/* Chart 1: Multi-Turn Belief Trajectory */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xs">
+            <div className="glass-panel rounded-2xl p-6 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-100 flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-zinc-400" />
+                    <TrendingUp className="w-4 h-4 text-zinc-300" />
                     <span>Belief Trajectory Over Conversation Rounds</span>
                   </h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
                     Comparison of user posterior p(H1) in Sycophantic condition vs Fair Bot baseline.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-zinc-500">
+                <span className="text-xs font-mono text-zinc-400 bg-white/[0.05] px-2.5 py-1 rounded-full border border-white/10">
                   Target Hypothesis Truth = {config.worldTruth}
                 </span>
               </div>
@@ -333,7 +344,7 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="round" stroke="#71717a" label={{ value: 'Conversation Round t', position: 'insideBottom', offset: -5, fill: '#71717a', fontSize: 11 }} />
                     <YAxis domain={[0, 1]} stroke="#71717a" label={{ value: 'Posterior p_t(H1)', angle: -90, position: 'insideLeft', fill: '#71717a', fontSize: 11 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px' }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', borderRadius: '8px' }} />
                     <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
                     <Line 
                       type="monotone" 
@@ -356,13 +367,13 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({ onRunSimulation })
                 </ResponsiveContainer>
               </div>
 
-              <p className="text-xs text-zinc-400 mt-4 leading-relaxed bg-zinc-950 p-3 rounded-lg border border-zinc-800">
-                <strong className="text-zinc-200">Simulation Analysis:</strong> {result.summary}
+              <p className="text-xs text-zinc-300 mt-4 leading-relaxed glass-panel-subtle p-3.5 rounded-xl border border-white/[0.06]">
+                <strong className="text-zinc-100">Simulation Analysis:</strong> {result.summary}
               </p>
             </div>
 
             {/* Chart 2: Final Belief Distribution Histogram */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xs">
+            <div className="glass-panel rounded-2xl p-6 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-100 flex items-center space-x-2">

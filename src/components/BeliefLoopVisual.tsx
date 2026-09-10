@@ -27,18 +27,18 @@ export const BeliefLoopVisual: React.FC<BeliefLoopVisualProps> = ({
   const isHighRisk = riskLevel === 'HIGH' || riskLevel === 'CRITICAL';
 
   return (
-    <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 shadow-xs relative overflow-hidden">
+    <div className="glass-panel rounded-2xl p-5 relative overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h4 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+          <h4 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
             Epistemic Mechanism Visualizer
           </h4>
-          <h3 className="text-sm font-medium text-zinc-200">
+          <h3 className="text-sm font-semibold text-zinc-100">
             Conversational Belief Reinforcement Loop
           </h3>
         </div>
         <div className="text-right">
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+          <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white/[0.05] text-zinc-300 border border-white/10">
             Paper-Modeled Feedback Loop
           </span>
         </div>
@@ -48,9 +48,9 @@ export const BeliefLoopVisual: React.FC<BeliefLoopVisualProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative py-2">
         
         {/* Node 1: User Expresses Hypothesis */}
-        <div className="bg-zinc-950 border border-zinc-800/80 rounded-lg p-3 relative flex flex-col justify-between">
+        <div className="glass-card rounded-xl p-3.5 relative flex flex-col justify-between">
           <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-[10px] font-mono text-zinc-500">1. PRIOR STANCE</span>
+            <span className="text-[10px] font-mono text-zinc-400">1. PRIOR STANCE</span>
             <User className="w-3.5 h-3.5 text-zinc-300" />
           </div>
           <div className="font-medium text-xs text-zinc-200">User Expresses Hypothesis H*(t)</div>
@@ -60,23 +60,23 @@ export const BeliefLoopVisual: React.FC<BeliefLoopVisualProps> = ({
         </div>
 
         {/* Node 2: Chatbot Validation */}
-        <div className={`bg-zinc-950 border rounded-lg p-3 relative flex flex-col justify-between transition-colors ${
-          isHighRisk ? 'border-amber-500/40 bg-amber-500/5' : 'border-zinc-800/80'
+        <div className={`glass-card rounded-xl p-3.5 relative flex flex-col justify-between transition-colors ${
+          isHighRisk ? 'border-amber-500/40 bg-amber-500/10' : ''
         }`}>
           <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-[10px] font-mono text-zinc-500">2. RAW RESPONSE</span>
+            <span className="text-[10px] font-mono text-zinc-400">2. RAW RESPONSE</span>
             <MessageSquare className={`w-3.5 h-3.5 ${isHighRisk ? 'text-amber-400' : 'text-zinc-400'}`} />
           </div>
           <div className="font-medium text-xs text-zinc-200">Chatbot Responds ρ(t)</div>
-          <div className={`mt-2 text-[11px] font-mono ${isHighRisk ? 'text-amber-400' : 'text-zinc-400'}`}>
+          <div className={`mt-2 text-[11px] font-mono ${isHighRisk ? 'text-amber-400 font-semibold' : 'text-zinc-400'}`}>
             Validation π̂ ≈ {(aiValidation * 100).toFixed(0)}%
           </div>
         </div>
 
         {/* Node 3: Bayesian Update */}
-        <div className="bg-zinc-950 border border-zinc-800/80 rounded-lg p-3 relative flex flex-col justify-between">
+        <div className="glass-card rounded-xl p-3.5 relative flex flex-col justify-between">
           <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-[10px] font-mono text-zinc-500">3. BELIEF UPDATE</span>
+            <span className="text-[10px] font-mono text-zinc-400">3. BELIEF UPDATE</span>
             <TrendingUp className="w-3.5 h-3.5 text-zinc-300" />
           </div>
           <div className="font-medium text-xs text-zinc-200">User Increases Certainty</div>
@@ -86,9 +86,9 @@ export const BeliefLoopVisual: React.FC<BeliefLoopVisualProps> = ({
         </div>
 
         {/* Node 4: Reinforced Expression */}
-        <div className="bg-zinc-950 border border-zinc-800/80 rounded-lg p-3 relative flex flex-col justify-between">
+        <div className="glass-card rounded-xl p-3.5 relative flex flex-col justify-between">
           <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-[10px] font-mono text-zinc-500">4. NEXT TURN</span>
+            <span className="text-[10px] font-mono text-zinc-400">4. NEXT TURN</span>
             <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
           </div>
           <div className="font-medium text-xs text-zinc-200">Escalated Dogmatism</div>

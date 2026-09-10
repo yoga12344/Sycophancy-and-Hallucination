@@ -162,21 +162,21 @@ export const TraceView: React.FC<TraceViewProps> = ({
   const stepsToDisplay = hasLiveTrace ? traceSteps! : (showSampleFlow ? defaultSampleTrace : []);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-zinc-950 text-zinc-200">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-transparent text-zinc-200">
       
       {/* Header */}
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 font-mono text-xs font-medium uppercase">
+              <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-zinc-300 font-mono text-xs font-medium uppercase">
                 Observability &amp; Trace
               </span>
               <span className="text-xs font-mono text-zinc-500">
                 {hasLiveTrace ? 'Live Session Telemetry' : 'Standby Mode'}
               </span>
             </div>
-            <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">
+            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">
               Firewall Pipeline Execution Trace
             </h1>
             <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
@@ -191,7 +191,7 @@ export const TraceView: React.FC<TraceViewProps> = ({
             {!hasLiveTrace && (
               <button
                 onClick={() => setShowSampleFlow(!showSampleFlow)}
-                className="px-3 py-1.5 text-xs font-mono rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
+                className="px-3.5 py-1.5 text-xs font-mono rounded-xl border border-white/10 bg-white/[0.05] hover:bg-white/10 text-zinc-300 transition-all backdrop-blur-sm"
               >
                 {showSampleFlow ? 'Hide Sample Trace' : 'View Sample Telemetry Flow'}
               </button>
@@ -200,14 +200,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
         </div>
 
         {/* Configurable Risk Weights Box */}
-        <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="mt-6 glass-panel rounded-2xl p-6 shadow-md space-y-4">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
             <div>
-              <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center space-x-2">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-300 font-semibold flex items-center space-x-2">
                 <Sliders className="w-4 h-4 text-zinc-400" />
                 <span>Configurable Epistemic Risk Weights</span>
               </h3>
-              <p className="text-[11px] text-zinc-500 mt-0.5 font-mono">
+              <p className="text-[11px] text-zinc-400 mt-0.5 font-mono">
                 risk = w1 * sycophancy + w2 * hallucination + w3 * evidenceImbalance + w4 * reinforcement
               </p>
             </div>
@@ -215,14 +215,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleResetWeights}
-                className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-md flex items-center space-x-1 transition-colors"
+                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 glass-card rounded-lg flex items-center space-x-1.5 transition-all"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset Defaults</span>
               </button>
               <button
                 onClick={handleSaveWeights}
-                className="px-3 py-1 text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-white rounded-md flex items-center space-x-1 transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-medium text-zinc-950 bg-white/90 hover:bg-white rounded-lg flex items-center space-x-1.5 transition-all shadow-sm"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{savedSuccess ? 'Saved!' : 'Save Weights'}</span>

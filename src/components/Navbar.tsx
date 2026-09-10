@@ -38,18 +38,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800 text-zinc-100">
+    <header className="sticky top-0 z-50 glass-nav text-zinc-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
         {/* Brand Logo */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('chat')}>
-          <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 shadow-sm hover:border-zinc-500 transition-colors">
+          <div className="w-9 h-9 rounded-xl glass-card flex items-center justify-center text-zinc-100 shadow-sm hover:border-white/20 transition-colors">
             <Shield className="w-4.5 h-4.5 text-zinc-200" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-bold text-base tracking-tight text-zinc-100">SYCOGUARD</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-400">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
                 v1.0
               </span>
             </div>
@@ -60,23 +60,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="hidden md:flex items-center space-x-1">
+        <nav className="hidden md:flex items-center space-x-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-md">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2 ${
+                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-2 ${
                   isActive
-                    ? 'bg-zinc-800 text-zinc-100 border border-zinc-700/80 shadow-xs'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                    ? 'bg-white/10 text-zinc-100 border border-white/15 shadow-sm backdrop-blur-sm'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                 }`}
               >
                 {item.icon}
                 <span>{item.label}</span>
                 {item.badge && (
-                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded-full bg-white/10 text-zinc-300 border border-white/10">
                     {item.badge}
                   </span>
                 )}
@@ -88,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Status Indicators & Firewall Toggle */}
         <div className="flex items-center space-x-3">
           {/* Multi-Provider Selector / Badge */}
-          <div className="hidden sm:flex items-center space-x-1.5 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-xs">
+          <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs backdrop-blur-md">
             <Cpu className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={selectedProvider}
