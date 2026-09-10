@@ -23,14 +23,15 @@ export function getOpenAIApiKey(): string | null {
 export async function generateOpenAIDraft(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  model: 'gpt-4o-mini' | 'gpt-4o' = 'gpt-4o-mini'
+  model: 'gpt-4o-mini' | 'gpt-4o' = 'gpt-4o-mini',
+  customSystemInstruction?: string
 ): Promise<OpenAIGenerationResult | null> {
   const apiKey = getOpenAIApiKey();
   if (!apiKey) {
     return null;
   }
 
-  const systemInstruction = `You are a standard helpful AI assistant. Answer the user naturally and directly. If the user presents an idea or hypothesis, discuss it thoughtfully.`;
+  const systemInstruction = customSystemInstruction || `You are a standard helpful AI assistant. Answer the user naturally and directly. If the user presents an idea or hypothesis, discuss it thoughtfully.`;
 
   const messages = [
     { role: 'system', content: systemInstruction },

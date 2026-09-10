@@ -75,7 +75,7 @@ export async function orchestrateFirewallPipeline(
   // STAGE 2: Intercept Raw Model Draft
   // ============================================================
   const tDraft = Date.now();
-  const { text: rawDraft, provider, isDemo } = await generateDraftResponse(userMessage, historyParts, preferredProvider);
+  const { text: rawDraft, provider, isDemo } = await generateDraftResponse(userMessage, historyParts, preferredProvider, intent);
 
   trace.push({
     id: 'step_2_llm_draft',

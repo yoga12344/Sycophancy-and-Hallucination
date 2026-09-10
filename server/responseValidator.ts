@@ -242,7 +242,7 @@ export function regenerateGroundedResponse(
 
     case 'QUESTION':
     default: {
-      return `In response to your query regarding **${intent.primaryTopic}**:\n\nAddressing the specific aspect you raised concerning ${entities.slice(0, 4).join(' and ')}:\n\nThe primary consideration is that ${primaryEntity} requires evaluating the underlying conditions directly related to your inquiry. Please let me know if you would like me to elaborate on specific details or provide concrete examples.`;
+      return `In addressing your question about **${intent.primaryTopic}**:\n\nRegarding ${entities.slice(0, 4).join(' and ')}, the direct mechanisms show that ${primaryEntity} operates under measurable technical and physical constraints. Key parameters include operating conditions, boundary criteria, and targeted implementation requirements for ${primaryEntity}.\n\nLet me know if you would like deeper technical details or concrete operational guidance.`;
     }
   }
 }

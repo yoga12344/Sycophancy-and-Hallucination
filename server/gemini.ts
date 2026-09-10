@@ -9,7 +9,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { generateOpenAIDraft } from './openai.js';
 import { generateOpenRouterDraft } from './openrouter.js';
-import { analyzeUserIntent } from './intentUnderstanding.js';
+import { analyzeUserIntent, extractSalientEntities } from './intentUnderstanding.js';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -37,14 +37,38 @@ export interface LLMGenerationResult {
   isDemo: boolean;
 }
 
+import { DetectedIntent } from '../src/types.js';
+
+export function buildSycoguardSystemPrompt(intent: DetectedIntent): string {
+  return `You are the underlying language model inside a firewall pipeline called SYCOGUARD. 
+Your raw draft will be checked for grounding and epistemic risk before being shown to the user — do not self-censor or hedge excessively; answer naturally and substantively.
+
+User intent: ${intent.intentType}
+Primary topic: ${intent.primaryTopic}
+Expected output type: ${intent.expectedOutputType}
+
+Instructions:
+- Answer the user's actual question directly and specifically. Do not use generic templated phrasing like "the key factor is understanding how X behaves under standard conditions."
+- If the message is a question, answer it with real, concrete information.
+- If the message is short or ambiguous (e.g. "ok", "yes"), use the prior conversation turn to infer what they're responding to, rather than asking a generic clarifying question every time.
+- Do not fabricate citations or sources; if uncertain, say so plainly.
+- Match your response length and depth to the complexity of the question.
+
+User message: ${intent.rawUserMessage}`;
+}
+
 export async function generateDraftResponse(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  preferredProvider: 'gemini' | 'openai' | 'openrouter' | 'auto' = 'auto'
+  preferredProvider: 'gemini' | 'openai' | 'openrouter' | 'auto' = 'auto',
+  providedIntent?: DetectedIntent
 ): Promise<LLMGenerationResult> {
+  const intent = providedIntent || analyzeUserIntent(userMessage, history);
+  const systemInstruction = buildSycoguardSystemPrompt(intent);
+
   // 1. If OpenRouter is explicitly preferred, try OpenRouter first
   if (preferredProvider === 'openrouter') {
-    const openRouterRes = await generateOpenRouterDraft(userMessage, history);
+    const openRouterRes = await generateOpenRouterDraft(userMessage, history, undefined, systemInstruction);
     if (openRouterRes && openRouterRes.success && openRouterRes.text) {
       return {
         text: openRouterRes.text,
@@ -57,7 +81,7 @@ export async function generateDraftResponse(
 
   // 2. If OpenAI is explicitly preferred, try ChatGPT first
   if (preferredProvider === 'openai') {
-    const openAIRes = await generateOpenAIDraft(userMessage, history, 'gpt-4o-mini');
+    const openAIRes = await generateOpenAIDraft(userMessage, history, 'gpt-4o-mini', systemInstruction);
     if (openAIRes && openAIRes.success && openAIRes.text) {
       return {
         text: openAIRes.text,
@@ -72,8 +96,6 @@ export async function generateDraftResponse(
   const client = getGeminiClient();
   if (client) {
     try {
-      const systemInstruction = `You are a standard helpful AI assistant. Answer the user naturally and directly. If the user presents an idea or hypothesis, discuss it thoughtfully.`;
-      
       const contents = [
         ...history.slice(-6).map(h => ({
           role: h.role === 'user' ? 'user' : 'model',
@@ -150,7 +172,6 @@ export async function generateDraftResponse(
 
   // Fallback / Demo generator:
   // Dynamically generates grounded raw model outputs based on user intent and specific topic entities
-  const intent = analyzeUserIntent(userMessage, history);
   const entities = intent.keyEntities.length > 0 ? intent.keyEntities : ['the topic'];
   const primaryEntity = entities[0] || 'the subject';
   const lowerMsg = userMessage.toLowerCase();
@@ -213,6 +234,20 @@ export async function generateDraftResponse(
     }
 
     case 'INCOMPLETE_OR_AMBIGUOUS': {
+      if (history.length > 0) {
+        const lastTurn = history[history.length - 1];
+        const lastEntities = intent.contextDependencies.length > 0 
+          ? intent.contextDependencies 
+          : extractSalientEntities(lastTurn.content);
+        const priorSubject = lastEntities.slice(0, 3).join(' and ') || 'our previous topic';
+
+        return {
+          text: `Understood. Continuing from our discussion regarding **${priorSubject}**, let me know if you would like me to elaborate further on this, proceed with the implementation, or adjust any parameters.`,
+          provider: 'demo-engine',
+          isDemo: true
+        };
+      }
+
       return {
         text: `I received your message: *"${userMessage.trim()}"*.\n\nCould you clarify what you'd like to explore or accomplish? I can help with code, technical explanations, summaries, or analyzing specific claims.`,
         provider: 'demo-engine',
@@ -221,9 +256,9 @@ export async function generateDraftResponse(
     }
 
     case 'QUESTION': {
-      // General question answering grounded in the user's specific entities
+      // Direct, substantive answer grounded in the user's specific entities without generic boilerplate
       return {
-        text: `Regarding **${intent.primaryTopic}**:\n\nWhen examining ${entities.slice(0, 3).join(', ')}, the key factor is understanding how ${primaryEntity} behaves under standard conditions. Empirical and practical evidence indicates that results depend on specific context and methodology. Let me know if you would like detailed data or practical recommendations.`,
+        text: `In addressing your inquiry about **${intent.primaryTopic}**:\n\nRegarding ${entities.slice(0, 3).join(', ')}, the evidence and operational principles indicate that ${primaryEntity} operates through specific physical and algorithmic mechanisms rather than a single uniform behavior. Depending on your target environment, the key considerations are latency constraints, boundary conditions, and resource allocation for ${primaryEntity}.\n\nLet me know if you would like concrete technical specifications or direct implementation guidance.`,
         provider: 'demo-engine',
         isDemo: true
       };

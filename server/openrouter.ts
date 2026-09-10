@@ -32,14 +32,15 @@ const OPENROUTER_MODELS = [
 export async function generateOpenRouterDraft(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  preferredModel?: string
+  preferredModel?: string,
+  customSystemInstruction?: string
 ): Promise<OpenRouterGenerationResult | null> {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
     return null;
   }
 
-  const systemInstruction = `You are a standard helpful AI assistant. Answer the user naturally and directly. If the user presents an idea or hypothesis, discuss it thoughtfully.`;
+  const systemInstruction = customSystemInstruction || `You are a standard helpful AI assistant. Answer the user naturally and directly. If the user presents an idea or hypothesis, discuss it thoughtfully.`;
 
   const messages = [
     { role: 'system', content: systemInstruction },
