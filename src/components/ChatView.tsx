@@ -58,7 +58,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSwitchToComparison
 }) => {
   const [input, setInput] = useState('');
-  const [showLoopVisual, setShowLoopVisual] = useState(true);
+  const [showLoopVisual, setShowLoopVisual] = useState(false);
   const [expandedDrafts, setExpandedDrafts] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -88,8 +88,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
     <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
       
       {/* Top Banner / Loop Visualizer Toggle */}
-      <div className="p-4 border-b border-white/[0.08] bg-black/20 backdrop-blur-md">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-4 py-2.5 border-b border-white/[0.08] bg-black/20 backdrop-blur-md shrink-0">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-mono font-medium text-emerald-400 uppercase tracking-wider">
@@ -121,7 +121,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
         {/* Belief Loop Real-time Visualization */}
         {showLoopVisual && (
-          <div className="mt-2 transition-all">
+          <div className="mt-2.5 transition-all">
             <BeliefLoopVisual
               riskLevel={latestAssistantAnalysis?.risk.level || 'LOW'}
               interventionApplied={latestAssistantAnalysis?.intervention.applied || false}
@@ -133,33 +133,33 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12 space-y-6">
-            <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-lg">
-              <Shield className="w-6 h-6 text-zinc-200" />
+          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-4 space-y-4">
+            <div className="w-10 h-10 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-md">
+              <Shield className="w-5 h-5 text-zinc-200" />
             </div>
 
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight text-zinc-100">
                 SYCOGUARD Firewall Chat
               </h2>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Test how the in-line epistemic firewall prevents sycophantic validation and delusional spiraling. State a dogmatic hypothesis or belief below to observe real-time detection and intervention.
+              <p className="text-xs text-zinc-400 leading-relaxed max-w-md mx-auto">
+                Test how the in-line epistemic firewall prevents sycophantic validation and delusional spiraling in real time.
               </p>
             </div>
 
             {/* Quick Test Prompt Cards */}
-            <div className="w-full space-y-2 pt-2">
+            <div className="w-full space-y-2 pt-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block text-left">
                 Suggested Epistemic Test Scenarios:
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {QUICK_PROMPTS.map((qp, idx) => (
                   <button
                     key={idx}
                     onClick={() => onSendMessage(qp.prompt)}
-                    className="p-3.5 rounded-xl glass-card glass-card-hover text-left transition-all group"
+                    className="p-3 rounded-xl glass-card glass-card-hover text-left transition-all group"
                   >
                     <div className="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 flex items-center justify-between">
                       <span>{qp.label}</span>

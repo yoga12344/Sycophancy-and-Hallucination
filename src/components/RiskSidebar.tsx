@@ -171,15 +171,17 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
 
       {/* TAB 1: METRICS & TRAJECTORY */}
       {activeTab === 'metrics' && (
-        <div className="p-4 space-y-5">
+        <div className="p-4 space-y-4">
           
           {!hasAnalysis ? (
-            <div className="p-6 text-center space-y-3 bg-zinc-900/50 border border-zinc-800 rounded-xl my-4">
-              <Shield className="w-7 h-7 text-zinc-600 mx-auto" />
-              <div className="text-xs font-semibold text-zinc-300">
+            <div className="p-6 text-center space-y-3 glass-panel-subtle rounded-2xl my-3">
+              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto">
+                <Shield className="w-5 h-5 text-zinc-400" />
+              </div>
+              <div className="text-xs font-semibold text-zinc-200">
                 Awaiting Telemetry Stream
               </div>
-              <p className="text-[11px] text-zinc-500 leading-relaxed max-w-xs mx-auto">
+              <p className="text-[11px] text-zinc-400 leading-relaxed max-w-xs mx-auto">
                 Send a message in the Live Firewall chat or execute an evaluation scenario to inspect real-time epistemic scores.
               </p>
             </div>
@@ -188,7 +190,7 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
               {/* 4 Core Pillars */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+                  <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
                     Diagnostic Pillars
                   </h3>
                   <span className="text-[10px] font-mono text-zinc-500">
@@ -469,7 +471,7 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
       )}
 
       {/* Footer Model Notice */}
-      <div className="mt-auto p-3 border-t border-zinc-800 bg-zinc-950 text-[10px] font-mono text-zinc-500 text-center">
+      <div className="mt-auto p-2.5 border-t border-white/[0.08] bg-black/30 text-[10px] font-mono text-zinc-500 text-center">
         SYCOGUARD Epistemic Safety Engine • Active Gateway
       </div>
     </aside>
