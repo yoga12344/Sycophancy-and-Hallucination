@@ -195,22 +195,26 @@ export function App() {
 
   return (
     <div 
-      className="flex flex-col w-full h-screen h-[100dvh] min-h-screen bg-transparent text-zinc-100 font-sans antialiased select-text relative overflow-hidden flex-1"
+      className="flex flex-col w-full h-screen h-[100dvh] min-h-screen max-h-[100dvh] bg-transparent text-zinc-100 font-sans antialiased select-text relative overflow-hidden flex-1"
       style={{
         width: '100%',
         height: '100dvh',
         minHeight: '100vh',
+        maxHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         margin: 0,
-        padding: 0
+        padding: 0,
+        overflow: 'hidden'
       }}
     >
       
       {/* Ambient background blur elements for glassmorphism refraction */}
-      <div className="absolute top-[-10%] left-[-5%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none -z-10" />
-      <div className="absolute top-[20%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-emerald-500/[0.07] blur-[150px] pointer-events-none -z-10" />
-      <div className="absolute bottom-[-15%] left-[25%] w-[55vw] h-[55vw] rounded-full bg-purple-500/[0.06] blur-[160px] pointer-events-none -z-10" />
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[-10%] left-[-5%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px]" />
+        <div className="absolute top-[20%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-emerald-500/[0.07] blur-[150px]" />
+        <div className="absolute bottom-[-15%] left-[25%] w-[55vw] h-[55vw] rounded-full bg-purple-500/[0.06] blur-[160px]" />
+      </div>
 
       {/* 1. Global Navigation Bar */}
       <Navbar

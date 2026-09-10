@@ -61,13 +61,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [showLoopVisual, setShowLoopVisual] = useState(false);
   const [expandedDrafts, setExpandedDrafts] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 0 || isLoading) {
+      scrollToBottom();
+    }
   }, [messages, isLoading]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -133,7 +141,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col justify-between">
+      <div 
+        ref={chatScrollRef}
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col justify-between"
+      >
         {messages.length === 0 ? (
           <div className="my-auto flex flex-col items-center justify-center text-center max-w-xl mx-auto py-6 space-y-5 w-full">
             <div className="w-11 h-11 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-md">
