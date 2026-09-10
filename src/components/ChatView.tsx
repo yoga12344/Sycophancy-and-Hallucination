@@ -133,11 +133,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col justify-between">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-4 space-y-4">
-            <div className="w-10 h-10 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-md">
-              <Shield className="w-5 h-5 text-zinc-200" />
+          <div className="my-auto flex flex-col items-center justify-center text-center max-w-xl mx-auto py-6 space-y-5 w-full">
+            <div className="w-11 h-11 rounded-2xl glass-card flex items-center justify-center text-zinc-300 shadow-md">
+              <Shield className="w-5.5 h-5.5 text-zinc-200" />
             </div>
 
             <div className="space-y-1">

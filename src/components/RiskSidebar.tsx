@@ -171,12 +171,12 @@ export const RiskSidebar: React.FC<RiskSidebarProps> = ({ analysis, isLoading })
 
       {/* TAB 1: METRICS & TRAJECTORY */}
       {activeTab === 'metrics' && (
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 flex-1 flex flex-col">
           
           {!hasAnalysis ? (
-            <div className="p-6 text-center space-y-3 glass-panel-subtle rounded-2xl my-3">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto">
-                <Shield className="w-5 h-5 text-zinc-400" />
+            <div className="my-auto p-6 text-center space-y-3 glass-panel-subtle rounded-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto shadow-sm">
+                <Shield className="w-6 h-6 text-zinc-400" />
               </div>
               <div className="text-xs font-semibold text-zinc-200">
                 Awaiting Telemetry Stream
