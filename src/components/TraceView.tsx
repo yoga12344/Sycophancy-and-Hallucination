@@ -162,36 +162,36 @@ export const TraceView: React.FC<TraceViewProps> = ({
   const stepsToDisplay = hasLiveTrace ? traceSteps! : (showSampleFlow ? defaultSampleTrace : []);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-slate-900/50 text-slate-200">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-zinc-950 text-zinc-200">
       
       {/* Header */}
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-indigo-400 font-mono text-xs font-semibold uppercase">
+              <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 font-mono text-xs font-medium uppercase">
                 Observability &amp; Trace
               </span>
-              <span className="text-xs font-mono text-slate-500">
+              <span className="text-xs font-mono text-zinc-500">
                 {hasLiveTrace ? 'Live Session Telemetry' : 'Standby Mode'}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight mt-1">
+            <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">
               Firewall Pipeline Execution Trace
             </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
               Inspect each discrete decision, latency metric, and structured payload in the SYCOGUARD firewall architecture.
             </p>
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className="text-xs font-mono text-slate-400">
-              Stages: <strong>{stepsToDisplay.length}</strong>
+            <span className="text-xs font-mono text-zinc-400">
+              Stages: <strong className="text-zinc-200">{stepsToDisplay.length}</strong>
             </span>
             {!hasLiveTrace && (
               <button
                 onClick={() => setShowSampleFlow(!showSampleFlow)}
-                className="px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-cyan-400 transition-colors"
+                className="px-3 py-1.5 text-xs font-mono rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
               >
                 {showSampleFlow ? 'Hide Sample Trace' : 'View Sample Telemetry Flow'}
               </button>
@@ -200,14 +200,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
         </div>
 
         {/* Configurable Risk Weights Box */}
-        <div className="mt-6 bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
             <div>
-              <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center space-x-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center space-x-2">
+                <Sliders className="w-4 h-4 text-zinc-400" />
                 <span>Configurable Epistemic Risk Weights</span>
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-zinc-500 mt-0.5 font-mono">
                 risk = w1 * sycophancy + w2 * hallucination + w3 * evidenceImbalance + w4 * reinforcement
               </p>
             </div>
@@ -215,14 +215,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleResetWeights}
-                className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 rounded-md flex items-center space-x-1"
+                className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-md flex items-center space-x-1 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset Defaults</span>
               </button>
               <button
                 onClick={handleSaveWeights}
-                className="px-3 py-1 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-md flex items-center space-x-1"
+                className="px-3 py-1 text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-white rounded-md flex items-center space-x-1 transition-colors shadow-xs"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{savedSuccess ? 'Saved!' : 'Save Weights'}</span>
@@ -234,8 +234,8 @@ export const TraceView: React.FC<TraceViewProps> = ({
             
             <div className="space-y-1.5">
               <div className="flex justify-between font-mono">
-                <span>w1: Sycophancy</span>
-                <span className="text-cyan-400 font-bold">{weights.sycophancy.toFixed(2)}</span>
+                <span className="text-zinc-400">w1: Sycophancy</span>
+                <span className="text-zinc-200 font-semibold">{weights.sycophancy.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -244,14 +244,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
                 step="0.05"
                 value={weights.sycophancy}
                 onChange={(e) => setWeights({ ...weights, sycophancy: parseFloat(e.target.value) })}
-                className="w-full accent-cyan-500"
+                className="w-full accent-zinc-400"
               />
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between font-mono">
-                <span>w2: Hallucination</span>
-                <span className="text-emerald-400 font-bold">{weights.hallucination.toFixed(2)}</span>
+                <span className="text-zinc-400">w2: Hallucination</span>
+                <span className="text-emerald-400 font-semibold">{weights.hallucination.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -266,8 +266,8 @@ export const TraceView: React.FC<TraceViewProps> = ({
 
             <div className="space-y-1.5">
               <div className="flex justify-between font-mono">
-                <span>w3: Evidence Imbalance</span>
-                <span className="text-indigo-400 font-bold">{weights.evidenceImbalance.toFixed(2)}</span>
+                <span className="text-zinc-400">w3: Evidence Imbalance</span>
+                <span className="text-zinc-200 font-semibold">{weights.evidenceImbalance.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -276,14 +276,14 @@ export const TraceView: React.FC<TraceViewProps> = ({
                 step="0.05"
                 value={weights.evidenceImbalance}
                 onChange={(e) => setWeights({ ...weights, evidenceImbalance: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
+                className="w-full accent-zinc-400"
               />
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between font-mono">
-                <span>w4: Reinforcement</span>
-                <span className="text-pink-400 font-bold">{weights.reinforcement.toFixed(2)}</span>
+                <span className="text-zinc-400">w4: Reinforcement</span>
+                <span className="text-zinc-200 font-semibold">{weights.reinforcement.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -292,12 +292,12 @@ export const TraceView: React.FC<TraceViewProps> = ({
                 step="0.05"
                 value={weights.reinforcement}
                 onChange={(e) => setWeights({ ...weights, reinforcement: parseFloat(e.target.value) })}
-                className="w-full accent-pink-500"
+                className="w-full accent-zinc-400"
               />
             </div>
 
           </div>
-          <p className="text-[10px] font-mono text-slate-500 text-right">
+          <p className="text-[10px] font-mono text-zinc-500 text-right">
             Prototype risk model — configurable safety weighting
           </p>
         </div>
@@ -305,33 +305,33 @@ export const TraceView: React.FC<TraceViewProps> = ({
         {/* Step-by-Step Trace Timeline */}
         <div className="mt-8 space-y-3">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
               Pipeline Execution Steps
             </h3>
             {hasLiveTrace ? (
-              <span className="text-[11px] font-mono text-emerald-400 flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-[11px] font-mono text-emerald-400 flex items-center space-x-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>Live Session Telemetry</span>
               </span>
             ) : (
-              <span className="text-[11px] font-mono text-slate-500">
+              <span className="text-[11px] font-mono text-zinc-500">
                 {showSampleFlow ? 'Viewing Sample Flow' : 'Awaiting Live Execution'}
               </span>
             )}
           </div>
 
           {!hasLiveTrace && !showSampleFlow ? (
-            <div className="p-8 text-center bg-slate-950/70 border border-slate-800 rounded-2xl space-y-3">
-              <Layers className="w-8 h-8 text-slate-600 mx-auto" />
-              <div className="text-sm font-semibold text-slate-300">
+            <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3">
+              <Layers className="w-7 h-7 text-zinc-600 mx-auto" />
+              <div className="text-xs font-semibold text-zinc-300">
                 No Execution Trace Available
               </div>
-              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+              <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
                 Send a message in the <strong>Live Firewall</strong> chat or execute a benchmark in <strong>Benchmark Lab</strong> to record and inspect real-time agentic execution steps.
               </p>
               <button
                 onClick={() => setShowSampleFlow(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-cyan-400 text-xs font-mono hover:bg-slate-800 transition-colors"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs font-mono hover:bg-zinc-800 transition-colors"
               >
                 <span>View Sample Architectural Flow</span>
                 <ArrowRight className="w-3 h-3" />
@@ -346,69 +346,69 @@ export const TraceView: React.FC<TraceViewProps> = ({
               return (
                 <div
                   key={step.id}
-                  className={`bg-slate-950 border rounded-xl overflow-hidden transition-all ${
+                  className={`bg-zinc-900 border rounded-xl overflow-hidden transition-all ${
                     isFlagged 
-                      ? 'border-amber-900/60' 
+                      ? 'border-amber-500/30' 
                       : isSkipped 
-                        ? 'border-slate-800/60 opacity-85' 
-                        : 'border-slate-800'
+                        ? 'border-zinc-800/60 opacity-80' 
+                        : 'border-zinc-800'
                   }`}
                 >
                   {/* Header Row */}
                   <div
                     onClick={() => toggleStep(step.id)}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-900/40 transition-colors"
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/40 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <span className="w-6 h-6 rounded-md bg-slate-900 border border-slate-800 font-mono text-xs flex items-center justify-center text-slate-400">
+                      <span className="w-6 h-6 rounded-md bg-zinc-950 border border-zinc-800 font-mono text-xs flex items-center justify-center text-zinc-400">
                         {idx}
                       </span>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="text-xs font-semibold text-slate-200">
+                          <h4 className="text-xs font-semibold text-zinc-200">
                             {step.name}
                           </h4>
                           <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono uppercase ${
                             isFlagged 
-                              ? 'bg-amber-950/80 text-amber-400 border border-amber-800' 
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' 
                               : isSkipped 
-                                ? 'bg-slate-800 text-slate-400 border border-slate-700' 
-                                : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
+                                ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' 
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
                           }`}>
                             {step.status}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
                           {step.outputSummary}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-4">
-                      <div className="hidden sm:flex items-center space-x-1 text-[11px] font-mono text-slate-500">
+                      <div className="hidden sm:flex items-center space-x-1 text-[11px] font-mono text-zinc-500">
                         <Clock className="w-3 h-3" />
                         <span>{step.durationMs}ms</span>
                       </div>
 
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-zinc-400" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-zinc-400" />
                       )}
                     </div>
                   </div>
 
                   {/* Expanded JSON Payload */}
                   {isExpanded && step.rawPayload && (
-                    <div className="border-t border-slate-800/80 p-4 bg-slate-950 text-xs font-mono">
-                      <div className="flex items-center justify-between mb-2 text-slate-400">
+                    <div className="border-t border-zinc-800 p-4 bg-zinc-950 text-xs font-mono">
+                      <div className="flex items-center justify-between mb-2 text-zinc-400">
                         <div className="flex items-center space-x-1">
-                          <Code className="w-3.5 h-3.5 text-cyan-400" />
+                          <Code className="w-3.5 h-3.5 text-zinc-400" />
                           <span>Structured Stage Payload</span>
                         </div>
-                        <span>Stage ID: {step.id}</span>
+                        <span className="text-[10px] text-zinc-500">Stage ID: {step.id}</span>
                       </div>
-                      <pre className="p-3 bg-slate-900/90 border border-slate-800 rounded-lg text-slate-300 overflow-x-auto text-[11px]">
+                      <pre className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 overflow-x-auto text-[11px]">
                         {JSON.stringify(step.rawPayload, null, 2)}
                       </pre>
                     </div>

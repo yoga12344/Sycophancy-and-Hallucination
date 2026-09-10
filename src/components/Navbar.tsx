@@ -38,24 +38,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 text-slate-100">
+    <header className="sticky top-0 z-50 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800 text-zinc-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
         {/* Brand Logo */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('chat')}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-950/50">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Shield className="w-5 h-5 text-cyan-400" />
-            </div>
+          <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 shadow-sm hover:border-zinc-500 transition-colors">
+            <Shield className="w-4.5 h-4.5 text-zinc-200" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-lg tracking-wider text-white">SYCOGUARD</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-800/80 text-cyan-400">
+              <span className="font-bold text-base tracking-tight text-zinc-100">SYCOGUARD</span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-zinc-400">
                 v1.0
               </span>
             </div>
-            <p className="text-xs text-slate-400 hidden sm:block">
+            <p className="text-xs text-zinc-400 hidden sm:block">
               Sycophancy &amp; Hallucination Firewall
             </p>
           </div>
@@ -69,16 +67,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2 ${
                   isActive
-                    ? 'bg-slate-800 text-cyan-400 border border-slate-700 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                    ? 'bg-zinc-800 text-zinc-100 border border-zinc-700/80 shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
                 }`}
               >
                 {item.icon}
                 <span>{item.label}</span>
                 {item.badge && (
-                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
                     {item.badge}
                   </span>
                 )}
@@ -90,24 +88,24 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Status Indicators & Firewall Toggle */}
         <div className="flex items-center space-x-3">
           {/* Multi-Provider Selector / Badge */}
-          <div className="hidden sm:flex items-center space-x-1.5 px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="hidden sm:flex items-center space-x-1.5 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-xs">
+            <Cpu className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={selectedProvider}
               onChange={(e) => onSelectProvider?.(e.target.value as any)}
-              className="bg-transparent text-slate-300 font-mono text-[11px] focus:outline-none cursor-pointer"
+              className="bg-transparent text-zinc-300 font-mono text-[11px] focus:outline-none cursor-pointer"
               title="Select LLM Provider (Triple-LLM Engine: Gemini, OpenRouter & ChatGPT)"
             >
-              <option value="auto" className="bg-slate-900 text-slate-200">
+              <option value="auto" className="bg-zinc-900 text-zinc-200">
                 {activeProvider ? `AUTO (${activeProvider.toUpperCase()})` : 'AUTO (MULTI-LLM)'}
               </option>
-              <option value="gemini" className="bg-slate-900 text-slate-200">
+              <option value="gemini" className="bg-zinc-900 text-zinc-200">
                 GEMINI-3.6-FLASH
               </option>
-              <option value="openrouter" className="bg-slate-900 text-slate-200">
+              <option value="openrouter" className="bg-zinc-900 text-zinc-200">
                 OPENROUTER (NVIDIA)
               </option>
-              <option value="openai" className="bg-slate-900 text-slate-200">
+              <option value="openai" className="bg-zinc-900 text-zinc-200">
                 CHATGPT (GPT-4O)
               </option>
             </select>
@@ -117,13 +115,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => setFirewallActive(!firewallActive)}
             title="Toggle In-line Firewall Interception"
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
               firewallActive
-                ? 'bg-emerald-950/60 border-emerald-800 text-emerald-400 shadow-sm shadow-emerald-900/30'
-                : 'bg-amber-950/60 border-amber-800 text-amber-400'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${firewallActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${firewallActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
             <span>{firewallActive ? 'Firewall Active' : 'Bypass Mode'}</span>
           </button>
         </div>
@@ -131,15 +129,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Mobile nav sub-bar */}
-      <div className="md:hidden flex items-center overflow-x-auto px-4 py-2 space-x-2 border-t border-slate-900 bg-slate-950">
+      <div className="md:hidden flex items-center overflow-x-auto px-4 py-2 space-x-2 border-t border-zinc-900 bg-zinc-950">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={`whitespace-nowrap px-3 py-1 rounded-md text-xs font-medium flex items-center space-x-1.5 ${
               activeTab === item.id
-                ? 'bg-slate-800 text-cyan-400'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-zinc-800 text-zinc-100'
+                : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             {item.icon}

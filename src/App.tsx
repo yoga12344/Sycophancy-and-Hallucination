@@ -194,7 +194,7 @@ export function App() {
     : 94;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans antialiased select-text">
+    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans antialiased select-text">
       
       {/* 1. Global Navigation Bar */}
       <Navbar
@@ -271,27 +271,27 @@ export function App() {
       </main>
 
       {/* 3. Bottom Epistemic Status Bar */}
-      <footer className="h-8 bg-slate-950 border-t border-slate-800 px-4 flex items-center justify-between text-[11px] font-mono text-slate-500 shrink-0 z-10">
+      <footer className="h-8 bg-zinc-950 border-t border-zinc-800 px-4 flex items-center justify-between text-[11px] font-mono text-zinc-500 shrink-0 z-10">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
-            <span className={`w-2 h-2 rounded-full ${firewallActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className="text-slate-300 font-semibold">
+            <span className={`w-1.5 h-1.5 rounded-full ${firewallActive ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            <span className="text-zinc-300 font-medium">
               {firewallActive ? 'FIREWALL ACTIVE' : 'BYPASS MODE (RAW LLM)'}
             </span>
           </div>
-          <span className="text-slate-700 hidden sm:inline">|</span>
-          <span className="hidden sm:inline">Model: {activeProvider}</span>
-          <span className="text-slate-700 hidden sm:inline">|</span>
-          <span className="hidden sm:inline">In-Line Latency: ~140ms</span>
+          <span className="text-zinc-800 hidden sm:inline">|</span>
+          <span className="hidden sm:inline text-zinc-400">Model: {activeProvider}</span>
+          <span className="text-zinc-800 hidden sm:inline">|</span>
+          <span className="hidden sm:inline text-zinc-500">In-Line Latency: ~140ms</span>
         </div>
 
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
-            <span>Epistemic Integrity Index:</span>
-            <span className="font-bold text-emerald-400">{epistemicIndex}%</span>
+            <span className="text-zinc-400">Epistemic Integrity:</span>
+            <span className="font-semibold text-emerald-400">{epistemicIndex}%</span>
           </div>
-          <span className="text-slate-700 hidden md:inline">|</span>
-          <span className="hidden md:inline text-slate-400">SYCOGUARD v1.0</span>
+          <span className="text-zinc-800 hidden md:inline">|</span>
+          <span className="hidden md:inline text-zinc-500">SYCOGUARD v1.0</span>
         </div>
       </footer>
 
