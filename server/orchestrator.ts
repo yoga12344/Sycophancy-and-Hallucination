@@ -36,7 +36,7 @@ import { computeRisk, getRiskWeights } from './riskEngine.js';
 import { runInterventionAgent } from './interventionAgent.js';
 import { evaluateEpistemicRelevance } from './epistemicGate.js';
 import { analyzeUserIntent } from './intentUnderstanding.js';
-import { validateResponseGrounding, regenerateGroundedResponse } from './responseValidator.js';
+import { validateResponseGrounding, regenerateGroundedResponse, validateFinalResponse } from './responseValidator.js';
 
 export interface OrchestrationResult {
   rawDraft: string;
@@ -105,16 +105,21 @@ export async function orchestrateFirewallPipeline(
     rawPayload: { ...responseRelevance }
   });
 
-  // If UNRELATED: Reject and regenerate using user intent & LLM grounding
-  if (responseRelevance.regenerationRequired) {
+  // Bounded Regeneration Loop (MAX_REGEN_ATTEMPTS = 2)
+  let regenAttempts = 0;
+  const MAX_REGEN_ATTEMPTS = 2;
+
+  while (responseRelevance.regenerationRequired && regenAttempts < MAX_REGEN_ATTEMPTS) {
+    regenAttempts++;
     const tRegen = Date.now();
     effectiveDraft = await regenerateGroundedResponse(
       userMessage,
       intent,
-      rawDraft,
+      effectiveDraft,
       responseRelevance.detectedMisalignments,
       historyParts,
-      preferredProvider
+      preferredProvider,
+      regenAttempts
     );
     wasRegenerated = true;
 
@@ -123,18 +128,24 @@ export async function orchestrateFirewallPipeline(
     responseRelevance = {
       ...recheck,
       regenerated: true,
-      regenerationReason: responseRelevance.regenerationReason
+      regenerationReason: responseRelevance.regenerationReason,
+      attemptCount: regenAttempts
     };
 
     trace.push({
-      id: 'step_3b_regeneration',
-      name: 'Intent-Grounded Response Regeneration',
-      status: 'completed',
+      id: `step_3b_regeneration_${regenAttempts}`,
+      name: `Intent-Grounded Response Regeneration (Attempt ${regenAttempts}/${MAX_REGEN_ATTEMPTS})`,
+      status: responseRelevance.status === 'ALIGNED' ? 'completed' : 'flagged',
       timestamp: tRegen,
       durationMs: Math.max(1, Date.now() - tRegen),
-      outputSummary: `Draft was regenerated to adhere to user intent. New Relevance Score: ${(responseRelevance.overallRelevanceScore * 100).toFixed(0)}% [${responseRelevance.status}]`,
+      outputSummary: `Draft regenerated (Attempt ${regenAttempts}/${MAX_REGEN_ATTEMPTS}). Relevance Score: ${(responseRelevance.overallRelevanceScore * 100).toFixed(0)}% [${responseRelevance.status}]`,
       rawPayload: { regeneratedSnippet: effectiveDraft.slice(0, 120) + '...', originalReason: responseRelevance.regenerationReason }
     });
+  }
+
+  // Mandatory Decoupling: An irrelevant draft must NEVER proceed simply because epistemic risk is LOW
+  if (responseRelevance.status === 'UNRELATED') {
+    effectiveDraft = `I want to ensure I address your specific request regarding "${intent.resolvedUserRequest || userMessage}". Could you clarify or specify the key aspects you would like me to cover?`;
   }
 
   // ============================================================
@@ -422,6 +433,21 @@ export async function orchestrateFirewallPipeline(
 
   const finalResponse = intervention.applied ? intervention.protectedResponse : effectiveDraft;
 
+  // ============================================================
+  // STAGE 11: Final Response Validation Gate
+  // ============================================================
+  const tFinalVal = Date.now();
+  const finalValidation = validateFinalResponse(finalResponse, userMessage, intent, intervention.applied);
+  trace.push({
+    id: 'step_11_final_validation',
+    name: 'Final Response Validation Gate',
+    status: finalValidation.isValid ? 'completed' : 'flagged',
+    timestamp: tFinalVal,
+    durationMs: Math.max(1, Date.now() - tFinalVal),
+    outputSummary: finalValidation.reason || 'Final validation completed',
+    rawPayload: { ...finalValidation }
+  });
+
   // Log complete pipeline trace to development console
   logPipelineObservability({
     userMessage,
@@ -456,7 +482,7 @@ export async function orchestrateFirewallPipeline(
 }
 
 /**
- * Structured pipeline observability logging.
+ * Structured pipeline observability logging across all 14 trace dimensions.
  */
 function logPipelineObservability(params: {
   userMessage: string;
@@ -473,27 +499,30 @@ function logPipelineObservability(params: {
 
   console.log('\n============================================================');
   console.log('[SYCOGUARD INTENT & RESPONSE GROUNDING TRACE]');
-  console.log(`USER INPUT:\n  "${userMessage}"`);
-  console.log(`\n→ DETECTED INTENT:`);
+  console.log(`RAW USER MESSAGE:\n  "${userMessage}"`);
+  console.log(`\n→ RESOLVED USER REQUEST:\n  "${intent.resolvedUserRequest || userMessage}"`);
+  console.log(`\n→ DETECTED INTENT (20 Categories):`);
   console.log(`  Type: ${intent.intentType}`);
   console.log(`  Primary Topic: "${intent.primaryTopic}"`);
-  console.log(`  Key Entities: [${intent.keyEntities.join(', ')}]`);
-  console.log(`  Expected Output: ${intent.expectedOutputType}`);
+  console.log(`  Key Entities: [${intent.keyEntities?.join(', ') || ''}]`);
+  if (intent.claim) console.log(`  Extracted Claim: "${intent.claim}"`);
+  console.log(`  Requested Action: ${intent.requestedAction || 'Direct fulfillment'}`);
+  console.log(`  Expected Output Type: ${intent.expectedOutputType}`);
   console.log(`  Ambiguous: ${intent.isAmbiguous ? `YES (${intent.ambiguityReason})` : 'NO'}`);
   console.log(`\n→ RELEVANT CONTEXT:`);
   console.log(`  Dependencies: [${intent.contextDependencies?.join(', ') || 'None (isolated current-task boundary)'}]`);
   console.log(`\n→ GENERATED DRAFT (Raw):`);
   console.log(`  "${rawDraft.slice(0, 160).replace(/\n/g, ' ')}..."`);
-  console.log(`\n→ RELEVANCE ANALYSIS:`);
-  console.log(`  Status: ${responseRelevance.status} (Score: ${Math.round(responseRelevance.overallRelevanceScore * 100)}%)`);
-  console.log(`  Intent Alignment: ${Math.round(responseRelevance.intentAlignmentScore * 100)}% | Topic Alignment: ${Math.round(responseRelevance.topicAlignmentScore * 100)}%`);
-  console.log(`  Request Alignment: ${Math.round(responseRelevance.requestAlignmentScore * 100)}% | Context Alignment: ${Math.round(responseRelevance.contextAlignmentScore * 100)}%`);
+  console.log(`\n→ RELEVANCE ANALYSIS (10 Grounding Dimensions):`);
+  console.log(`  Status: ${responseRelevance.status} (Overall Score: ${Math.round(responseRelevance.overallRelevanceScore * 100)}%)`);
+  console.log(`  Intent: ${Math.round(responseRelevance.intentAlignmentScore * 100)}% | Topic: ${Math.round(responseRelevance.topicAlignmentScore * 100)}% | Request: ${Math.round(responseRelevance.requestAlignmentScore * 100)}%`);
+  console.log(`  Output Match: ${Math.round((responseRelevance.expectedOutputMatch ?? 1.0) * 100)}% | Context: ${Math.round(responseRelevance.contextAlignmentScore * 100)}%`);
   if (responseRelevance.detectedMisalignments && responseRelevance.detectedMisalignments.length > 0) {
     console.log(`\n→ DETECTED MISALIGNMENTS:`);
     responseRelevance.detectedMisalignments.forEach((m: string) => console.log(`  ⚠️ ${m}`));
   }
   console.log(`\n→ REGENERATION IF REQUIRED:`);
-  console.log(`  ${wasRegenerated ? `YES (Regenerated grounded response to resolve misalignments)` : 'NO (Draft is well-grounded)'}`);
+  console.log(`  ${wasRegenerated ? `YES (Regenerated grounded response to resolve misalignments, Attempts: ${responseRelevance.attemptCount || 1})` : 'NO (Draft is well-grounded)'}`);
   console.log(`\n→ EPISTEMIC ANALYSIS:`);
   console.log(`  Relevant: ${epistemicResult.isEpistemicallyRelevant ? 'YES' : 'NO'} (${epistemicResult.category})`);
   if (risk.signals) {
@@ -501,9 +530,9 @@ function logPipelineObservability(params: {
     console.log(`  Evidence Suppression: ${Math.round((risk.signals.evidenceSuppression || 0) * 100)}% | Model Sycophancy: ${Math.round((risk.signals.modelSycophancy || 0) * 100)}%`);
   }
   console.log(`\n→ RISK DECISION:`);
-  console.log(`  Level: ${risk.level} (${Math.round(risk.overallScore * 100)}%) | Triggers: ${risk.triggers.join(', ') || 'None'}`);
+  console.log(`  Level: ${risk.level} (${Math.round(risk.overallScore * 100)}%) | Triggers: ${risk.triggers?.join(', ') || 'None'}`);
   console.log(`  Intervention: ${intervention.type} (Applied: ${intervention.applied})`);
-  console.log(`\n→ FINAL RESPONSE:`);
+  console.log(`\n→ FINAL DELIVERED RESPONSE:`);
   console.log(`  "${finalResponse.slice(0, 180).replace(/\n/g, ' ')}..."`);
   console.log('============================================================\n');
 }

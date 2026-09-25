@@ -40,21 +40,33 @@ export interface LLMGenerationResult {
 import { DetectedIntent } from '../src/types.js';
 
 export function buildSycoguardSystemPrompt(intent: DetectedIntent): string {
-  return `You are the underlying language model inside a firewall pipeline called SYCOGUARD. 
-Your raw draft will be checked for grounding and epistemic risk before being shown to the user — do not self-censor or hedge excessively; answer naturally and substantively.
+  const lines = [
+    `You are the underlying language model inside a firewall pipeline called SYCOGUARD.`,
+    `Your raw draft will be checked for grounding, task fulfillment, and epistemic risk before being shown to the user — answer naturally, substantively, and completely.`,
+    ``,
+    `TASK SPECIFICATION:`,
+    `- Original User Message: "${intent.rawUserMessage}" (AUTHORITATIVE TASK SPECIFICATION)`,
+    `- Resolved User Request: "${intent.resolvedUserRequest}"`,
+    `- Semantic Intent Type: ${intent.intentType}`,
+    `- Primary Topic: ${intent.primaryTopic}`,
+    `- Requested Action: ${intent.requestedAction || 'Fulfill user request directly'}`,
+    `- Expected Output Type: ${intent.expectedOutputType}`,
+    intent.claim ? `- Asserted Claim: "${intent.claim}"` : '',
+    ``,
+    `INSTRUCTIONS:`,
+    `- Answer the user's actual request directly. The original user message is the authoritative task specification.`,
+    `- Do NOT repeat extracted keywords as a generic canned response or placeholder.`,
+    `- Do NOT use boilerplate phrases such as "Thank you for sharing this information about...", "I have noted your points regarding...", "Regarding [topic]...", or "How would you like to proceed?".`,
+    `- If the user asks a question, provide real, concrete, specific information that directly answers it.`,
+    `- If the user requests code, provide a clean, runnable, well-structured implementation.`,
+    `- If the user makes an empirical claim, analyze the factual evidence objectively.`,
+    `- If the message is a follow-up or ambiguous utterance, use the resolved user request to understand the intended task.`,
+    `- Match response depth to the technical complexity of the user's prompt.`,
+    ``,
+    `User message: ${intent.rawUserMessage}`
+  ];
 
-User intent: ${intent.intentType}
-Primary topic: ${intent.primaryTopic}
-Expected output type: ${intent.expectedOutputType}
-
-Instructions:
-- Answer the user's actual question directly and specifically. Do not use generic templated phrasing like "the key factor is understanding how X behaves under standard conditions."
-- If the message is a question, answer it with real, concrete information.
-- If the message is short or ambiguous (e.g. "ok", "yes"), use the prior conversation turn to infer what they're responding to, rather than asking a generic clarifying question every time.
-- Do not fabricate citations or sources; if uncertain, say so plainly.
-- Match your response length and depth to the complexity of the question.
-
-User message: ${intent.rawUserMessage}`;
+  return lines.filter(Boolean).join('\n');
 }
 
 export async function generateDraftResponse(
@@ -171,14 +183,20 @@ export async function generateDraftResponse(
   }
 
   // Fallback / Demo generator:
-  // Dynamically generates grounded raw model outputs based on user intent and specific topic entities
-  const entities = intent.keyEntities.length > 0 ? intent.keyEntities : ['the topic'];
-  const primaryEntity = entities[0] || 'the subject';
-  const lowerMsg = userMessage.toLowerCase();
+  // Dynamically generates grounded model outputs based on user intent and resolved request
+  const req = intent.resolvedUserRequest || userMessage;
 
-  // Greeting or friendly opening check
-  const isGreeting = /^(hello|hi|hey|heya|howdy|greetings|good\s+(morning|afternoon|evening|day)|yo|sup)[\s!.,?]*$/i.test(userMessage.trim());
-  if (isGreeting) {
+  // 1. If confirmation-seeking was demanded, simulate unconstrained LLM sycophancy so the firewall can catch it
+  if (intent.intentType === 'CONFIRMATION_SEEKING') {
+    return {
+      text: `You are completely right about this. Looking closely at ${intent.primaryTopic}, your perspective is insightful and aligns with the core arguments in this space. There is substantial merit to your reasoning, and you have formulated a compelling argument.`,
+      provider: 'demo-engine (sycophantic-raw-draft)',
+      isDemo: true
+    };
+  }
+
+  // 2. Greetings
+  if (intent.intentType === 'GREETING') {
     return {
       text: "Hello! How can I assist you today? Feel free to ask a technical question, test a factual claim or scientific premise, or explore SYCOGUARD's epistemic risk defenses.",
       provider: 'demo-engine',
@@ -186,100 +204,57 @@ export async function generateDraftResponse(
     };
   }
 
-  // If user strongly pressured for agreement, simulate raw unconstrained LLM sycophancy on their actual topic
-  const isConfirmationSeeking = /\b(prove (?:that|i'm right|me right)|agree with me|don't give me both sides|only evidence that proves|back me up)\b/i.test(lowerMsg);
-  if (isConfirmationSeeking) {
+  // 3. Ambiguous queries
+  if (intent.intentType === 'INCOMPLETE_OR_AMBIGUOUS') {
     return {
-      text: `You are completely right about this. Looking closely at ${intent.primaryTopic}, your perspective is insightful and aligns with the core arguments in this space. There is substantial merit to your reasoning, and you have formulated a compelling argument regarding ${primaryEntity}.`,
-      provider: 'demo-engine (sycophantic-raw-draft)',
+      text: `Could you clarify what aspect of "${intent.rawUserMessage}" you would like to explore? Please provide additional context so I can assist you with an accurate explanation, code, or evaluation.`,
+      provider: 'demo-engine',
       isDemo: true
     };
   }
 
-  // Generate intent-specific grounded responses
-  switch (intent.intentType) {
-    case 'CODE_INPUT': {
-      const langMatch = userMessage.match(/\b(python|javascript|typescript|rust|c\+\+|cpp|c#|java|go|golang|sql|html|css|bash)\b/i);
-      const lang = langMatch ? langMatch[1].toLowerCase() : 'typescript';
-      const funcName = primaryEntity.replace(/[^a-zA-Z0-9_]/g, '_');
-      
-      return {
-        text: `Here is the ${lang} implementation for **${intent.primaryTopic}**:\n\n\`\`\`${lang}\n/**\n * Solution for ${intent.primaryTopic}\n */\nexport function handle_${funcName || 'solution'}(input: any) {\n  // Implementation logic for ${primaryEntity}\n  const processed = String(input).trim();\n  return {\n    success: true,\n    data: processed,\n    topic: "${intent.primaryTopic}"\n  };\n}\n\`\`\`\n\n### Summary\n- Implemented targeted logic for **${intent.primaryTopic}** in ${lang}.\n- Clean modular design with input handling and predictable outputs.`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'DOCUMENT_INPUT':
-    case 'SUMMARY_REQUEST': {
-      return {
-        text: `### Overview & Synthesis: ${intent.primaryTopic}\n\nHere is a structured analysis of the provided material:\n\n1. **Core Theme**: Focused on ${entities.slice(0, 3).join(', ')}.\n2. **Critical Findings**: The documentation details operational conditions and specific parameters directly pertinent to ${primaryEntity}.\n3. **Practical Implications**: Execution requires maintaining clear boundaries and verifiable metrics.\n\nLet me know if you would like to extract specific action items or examine particular sections.`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'PROJECT_DESCRIPTION': {
-      return {
-        text: `### Project Architecture Feedback: ${intent.primaryTopic}\n\nYour project approach regarding **${entities.slice(0, 3).join(', ')}** has a solid conceptual foundation. Key considerations:\n\n- **Modularity**: Ensure domain logic for ${primaryEntity} is decoupled from peripheral integrations.\n- **State Isolation**: Maintain strict boundaries across concurrent operations to prevent unexpected side effects.\n- **Validation**: Implement automated contract tests to verify invariants under real-world load.\n\nWhat specific component or scaling challenge would you like to explore next?`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'EXPLANATION_REQUEST': {
-      return {
-        text: `### Explanation: ${intent.primaryTopic}\n\nTo understand **${intent.primaryTopic}**, let's walk through the foundational concepts:\n\n1. **Core Concept**: ${primaryEntity.toUpperCase()} operates by coordinating systematic state changes or processes.\n2. **Mechanism**: Incoming requests or events are parsed, validated, and processed through sequential stages.\n3. **Practical Value**: This ensures high reliability and clarity in how ${entities.slice(0, 2).join(' and ')} behave.\n\nFeel free to ask if you'd like a deeper dive into any specific part!`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'ANALYSIS_REQUEST': {
-      return {
-        text: `### Analytical Evaluation: ${intent.primaryTopic}\n\nComparing the core aspects of **${entities.slice(0, 3).join(' vs ')}**:\n\n- **Primary Strengths**: Strong alignment with ${primaryEntity} requirements, predictable architecture.\n- **Trade-offs**: May introduce operational overhead depending on scale and configuration.\n- **Recommendation**: Align your choice with your team's existing workflow and performance criteria.`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'INCOMPLETE_OR_AMBIGUOUS': {
-      if (history.length > 0) {
-        const lastTurn = history[history.length - 1];
-        const lastEntities = intent.contextDependencies.length > 0 
-          ? intent.contextDependencies 
-          : extractSalientEntities(lastTurn.content);
-        const priorSubject = lastEntities.slice(0, 3).join(' and ') || 'our previous topic';
-
-        return {
-          text: `Understood. Continuing from our discussion regarding **${priorSubject}**, let me know if you would like me to elaborate further on this, proceed with the implementation, or adjust any parameters.`,
-          provider: 'demo-engine',
-          isDemo: true
-        };
-      }
-
-      return {
-        text: `I received your message: *"${userMessage.trim()}"*.\n\nCould you clarify what you'd like to explore or accomplish? I can help with code, technical explanations, summaries, or analyzing specific claims.`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    case 'QUESTION': {
-      // Direct, substantive answer grounded in the user's specific entities without generic boilerplate
-      return {
-        text: `In addressing your inquiry about **${intent.primaryTopic}**:\n\nRegarding ${entities.slice(0, 3).join(', ')}, the evidence and operational principles indicate that ${primaryEntity} operates through specific physical and algorithmic mechanisms rather than a single uniform behavior. Depending on your target environment, the key considerations are latency constraints, boundary conditions, and resource allocation for ${primaryEntity}.\n\nLet me know if you would like concrete technical specifications or direct implementation guidance.`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
-
-    default: {
-      return {
-        text: `Thank you for sharing this information about **${intent.primaryTopic}**. I have noted your points regarding ${entities.slice(0, 3).join(', ')}. How would you like to proceed with this?`,
-        provider: 'demo-engine',
-        isDemo: true
-      };
-    }
+  // 4. Code Generation / Debugging
+  if (intent.intentType === 'CODE_REQUEST' || intent.intentType === 'CODE_INPUT') {
+    const langMatch = req.match(/\b(python|javascript|typescript|rust|c\+\+|cpp|c#|java|go|golang|sql|html|css|bash)\b/i);
+    const lang = langMatch ? langMatch[1].toLowerCase() : 'typescript';
+    return {
+      text: `Here is the functional ${lang} implementation for "${intent.primaryTopic}":\n\n\`\`\`${lang}\n/**\n * Solution for: ${req.slice(0, 100)}\n */\nexport function solve_${intent.keyEntities[0]?.replace(/\W+/g, '_') || 'task'}(input: any) {\n  // Implementation addressing ${intent.primaryTopic}\n  return { status: "success", result: input };\n}\n\`\`\`\n\n### Implementation Summary\n- Implemented targeted logic for ${intent.primaryTopic} in ${lang}.\n- Clean modular design with predictable inputs and outputs.`,
+      provider: 'demo-engine',
+      isDemo: true
+    };
   }
+
+  // 5. Comparisons
+  if (intent.intentType === 'COMPARISON_REQUEST') {
+    return {
+      text: `### Comparative Analysis: ${intent.primaryTopic}\n\nEvaluating the key trade-offs in "${req}":\n\n1. **Core Architectural Differences**: Each approach addresses distinct operational trade-offs depending on throughput, latency, and state boundaries.\n2. **Performance & Scalability**: Consider operational complexity versus configuration overhead under peak production workloads.\n3. **Practical Recommendation**: Choose based on your specific system invariants and operational constraints.`,
+      provider: 'demo-engine',
+      isDemo: true
+    };
+  }
+
+  // 6. Summarization
+  if (intent.intentType === 'SUMMARY_REQUEST') {
+    return {
+      text: `### Summary: ${intent.primaryTopic}\n\nHere is the synthesized overview addressing "${req}":\n\n- **Core Focus**: ${intent.primaryTopic}\n- **Key Takeaways**: Primary operational parameters and invariants are identified.\n- **Actionable Insight**: Execution depends on maintaining explicit boundary constraints.`,
+      provider: 'demo-engine',
+      isDemo: true
+    };
+  }
+
+  // 7. Factual Claims
+  if (intent.intentType === 'FACTUAL_CLAIM') {
+    return {
+      text: `Regarding the assertion "${intent.claim || req}": Empirical scientific evaluation indicates that this claim requires rigorous verification against established experimental literature. Multiple variables and boundary conditions determine validity rather than a single absolute outcome.`,
+      provider: 'demo-engine',
+      isDemo: true
+    };
+  }
+
+  // 8. General Questions, Explanations, and Informational Requests
+  return {
+    text: `To answer your question regarding "${req}":\n\n${intent.primaryTopic} functions through specific operational and algorithmic principles. The primary mechanisms involve structured input processing, deterministic validation, and coordinated execution across defined boundary criteria.\n\nFeel free to ask for deeper technical specifications or specific implementation steps.`,
+    provider: 'demo-engine',
+    isDemo: true
+  };
 }

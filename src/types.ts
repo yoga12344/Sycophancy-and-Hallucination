@@ -170,30 +170,55 @@ export interface EpistemicRelevanceResult {
 }
 
 export type UserIntentType =
-  | 'QUESTION'
+  | 'GREETING'
+  | 'FACTUAL_QUESTION'
+  | 'FACTUAL_CLAIM'
+  | 'CONFIRMATION_SEEKING'
+  | 'INFORMATION_REQUEST'
   | 'INFORMATION_SHARING'
-  | 'DOCUMENT_INPUT'
-  | 'PROJECT_DESCRIPTION'
-  | 'CODE_INPUT'
   | 'EXPLANATION_REQUEST'
   | 'SUMMARY_REQUEST'
   | 'ANALYSIS_REQUEST'
+  | 'CODE_REQUEST'
+  | 'CODE_INPUT'
+  | 'DOCUMENT_INPUT'
+  | 'PROJECT_DESCRIPTION'
   | 'CONVERSATION_CONTINUATION'
-  | 'FACTUAL_CLAIM'
+  | 'OPINION_REQUEST'
   | 'OPINION_EXPRESSION'
   | 'INSTRUCTION'
-  | 'INCOMPLETE_OR_AMBIGUOUS';
+  | 'COMPARISON_REQUEST'
+  | 'MULTI_PART_REQUEST'
+  | 'INCOMPLETE_OR_AMBIGUOUS'
+  | 'QUESTION'; // Legacy alias
+
+export type ExpectedOutputType =
+  | 'DIRECT_ANSWER'
+  | 'EXPLANATION'
+  | 'SUMMARY'
+  | 'ANALYSIS'
+  | 'CODE'
+  | 'CLAIM_VERIFICATION'
+  | 'COMPARISON'
+  | 'INFORMATIONAL_RESPONSE'
+  | 'CLARIFICATION'
+  | 'CONVERSATIONAL_RESPONSE'
+  | 'EVALUATION'
+  | 'answer' | 'code' | 'summary' | 'analysis' | 'explanation' | 'acknowledgment' | 'clarification' | 'evaluation';
 
 export interface DetectedIntent {
   intentType: UserIntentType;
   primaryTopic: string;
   keyEntities: string[];
+  claim?: string;
   requestedAction?: string;
-  expectedOutputType: 'answer' | 'code' | 'summary' | 'analysis' | 'explanation' | 'acknowledgment' | 'clarification' | 'evaluation';
+  expectedOutputType: ExpectedOutputType;
   isAmbiguous: boolean;
   ambiguityReason?: string;
   multiPartQuestions?: string[];
   contextDependencies?: string[];
+  conversationDependency: boolean;
+  resolvedUserRequest: string;
   rawUserMessage: string;
 }
 
@@ -207,12 +232,49 @@ export interface ResponseRelevanceAnalysis {
   topicAlignmentScore: number;    // 0 to 1
   requestAlignmentScore: number;  // 0 to 1
   contextAlignmentScore: number;  // 0 to 1
+  semanticRelevanceScore: number; // 0 to 1
+  expectedOutputMatch: number;    // 0 to 1
+  completenessScore: number;      // 0 to 1
+  instructionFollowingScore: number; // 0 to 1
+  formatComplianceScore?: number;
+  taskCompletionScore?: number;
+  passiveRefusalOrAcknowledgment?: boolean;
+  multiPartCoverage?: number;
+  dimensionScores?: {
+    intentAlignment: number;
+    topicAlignment: number;
+    requestAlignment: number;
+    contextAlignment: number;
+    semanticRelevance: number;
+    expectedOutputMatch: number;
+    completeness: number;
+    instructionFollowing: number;
+    formatCompliance: number;
+    multiPartCoverage: number;
+    taskCompletion: number;
+  };
   unsupportedAssumptions: string[];
   contextContaminationDetected: boolean;
   detectedMisalignments: string[];
   regenerationRequired: boolean;
   regenerationReason?: string;
   regenerated?: boolean;
+  attemptCount?: number;
+}
+
+export interface FinalValidationResult {
+  isValid: boolean;
+  score: number;
+  checks: {
+    answersUserRequest: boolean;
+    preservesIntent: boolean;
+    respectsContext: boolean;
+    avoidsUnrelatedContent: boolean;
+    avoidsUnsupportedAssumptions: boolean;
+    matchesExpectedFormat: boolean;
+    preservesIntervention: boolean;
+  };
+  reason?: string;
 }
 
 export interface FirewallAnalysis {

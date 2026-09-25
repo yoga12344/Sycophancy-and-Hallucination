@@ -1,21 +1,39 @@
 /**
- * SYCOGUARD Intent Understanding Engine
+ * SYCOGUARD Semantic Intent Understanding Engine
  * 
- * Pipeline Stage 1:
- * Determines the user's actual intent from the raw input and conversation context.
+ * Pipeline Stage 1b:
+ * Determines what the user is actually trying to accomplish across exactly 20 distinct
+ * semantic intent categories. Integrates conversation context resolution to resolve
+ * follow-up questions and pronoun references. Extracts atomic claims, requested actions,
+ * and expected output types without using crude keyword templates.
  * 
- * Guiding Principles:
- * 1. Do NOT assume every message is a question.
- * 2. Discern between 13 distinct intent types (coding, documents, projects, summaries,
- *    explanations, analysis, continuation, factual claims, instructions, ambiguous, etc.).
- * 3. Enforce current-task boundaries: do not leak unrelated previous turn context.
- * 4. Handle ambiguity gracefully: if no clear action is requested, do not invent one.
- * 5. Generalize across arbitrary future domains without hardcoded keywords.
+ * Exactly 20 Intent Categories:
+ * 1.  GREETING
+ * 2.  FACTUAL_QUESTION
+ * 3.  FACTUAL_CLAIM
+ * 4.  CONFIRMATION_SEEKING
+ * 5.  INFORMATION_REQUEST
+ * 6.  INFORMATION_SHARING
+ * 7.  EXPLANATION_REQUEST
+ * 8.  SUMMARY_REQUEST
+ * 9.  ANALYSIS_REQUEST
+ * 10. CODE_REQUEST
+ * 11. CODE_INPUT
+ * 12. DOCUMENT_INPUT
+ * 13. PROJECT_DESCRIPTION
+ * 14. CONVERSATION_CONTINUATION
+ * 15. OPINION_REQUEST
+ * 16. OPINION_EXPRESSION
+ * 17. INSTRUCTION
+ * 18. COMPARISON_REQUEST
+ * 19. MULTI_PART_REQUEST
+ * 20. INCOMPLETE_OR_AMBIGUOUS
  */
 
-import { DetectedIntent, UserIntentType } from '../src/types.js';
+import { DetectedIntent, UserIntentType, ExpectedOutputType } from '../src/types.js';
+import { resolveConversationContext } from './contextResolution.js';
 
-// Common English stop words for entity extraction
+// Common English stopwords for token filtering
 const STOP_WORDS = new Set([
   'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren\'t',
   'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by',
@@ -41,10 +59,9 @@ export interface ConversationTurn {
 }
 
 /**
- * Extracts salient tokens/entities from text without hardcoded topic lists.
+ * Extracts salient conceptual entities without relying on raw random tokens.
  */
 export function extractSalientEntities(text: string): string[] {
-  // Strip code blocks and markdown formatting for cleaner tokenization
   const cleaned = text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/`[^`]+`/g, ' ')
@@ -53,7 +70,6 @@ export function extractSalientEntities(text: string): string[] {
 
   const words = cleaned.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
   
-  // Frequency count to find top salient entities
   const freq = new Map<string, number>();
   for (const w of words) {
     freq.set(w, (freq.get(w) || 0) + 1);
@@ -69,62 +85,61 @@ export function extractSalientEntities(text: string): string[] {
  * Detects multiple sub-questions in a prompt.
  */
 export function extractMultiPartQuestions(text: string): string[] {
-  const parts: string[] = [];
-  
-  // Check for numbered lists e.g. "1. ... 2. ..."
-  const numberedMatches = text.match(/(?:^|\n)\s*(?:\d+[\.\)]|[-*])\s+([^\n?]+\??)/gi);
-  if (numberedMatches && numberedMatches.length > 1) {
-    return numberedMatches.map(p => p.trim());
+  // Check for numbered items or bullets that are actually questions (ending with ?)
+  const numberedQuestionMatches = text.match(/(?:^|\n|\s)\s*(?:\d+[\.\)]|[-*])\s+([^\n?]+\?)/gi);
+  if (numberedQuestionMatches && numberedQuestionMatches.length > 1) {
+    return numberedQuestionMatches.map(p => p.trim());
   }
 
-  // Split by question marks if multiple exist
-  const questionSegments = text.split(/\?+/).map(s => s.trim()).filter(s => s.length > 5);
+  const questionSegments = text.split(/\?+/).map(s => s.trim()).filter(s => s.length > 8);
   if (questionSegments.length > 1) {
-    return questionSegments.map(s => s + '?');
+    const actualQuestions = questionSegments.filter(s => /\b(what|how|why|when|where|who|which|can|could|would|should|is|are|do|does)\b/i.test(s));
+    if (actualQuestions.length > 1) {
+      return actualQuestions.map(s => s.endsWith('?') ? s : s + '?');
+    }
   }
 
-  return parts;
+  return [];
 }
 
 /**
- * Checks whether user message relies on prior context turns or establishes a fresh task.
+ * Extracts the primary topic cleanly from text rather than concatenating arbitrary stopwords.
+ */
+function extractPrimaryTopic(text: string, entities: string[]): string {
+  const trimmed = text.trim();
+
+  // Try extracting core subject from clear syntactic question patterns
+  const questionPattern = trimmed.match(/(?:what\s+causes|how\s+does|why\s+does|what\s+is|explain|compare|difference\s+between)\s+([^?.!\n]{3,60})/i);
+  if (questionPattern && questionPattern[1]) {
+    return questionPattern[1].trim().replace(/\s+(?:in|on|at|for|with|of)$/i, '');
+  }
+
+  // If entities exist, take the top 2-3 most frequent entities as a coherent phrase
+  if (entities.length > 0) {
+    return entities.slice(0, 3).join(' ');
+  }
+
+  // Fallback to first line summary
+  return trimmed.split(/\n/)[0].slice(0, 50).trim() || 'General query';
+}
+
+/**
+ * Checks whether user message relies on prior context turns.
  */
 export function evaluateContextDependencies(
   userMessage: string,
   history: ConversationTurn[]
 ): { contextDependencies: string[]; hasContextDependency: boolean } {
-  if (!history || history.length === 0) {
-    return { contextDependencies: [], hasContextDependency: false };
-  }
-
-  const trimmed = userMessage.trim().toLowerCase();
-
-  // Reference indicators pointing to previous turns
-  const continuationPatterns = [
-    /\b(that|this|it|the (?:first|second|third|previous|above|former|latter)|earlier|as you (?:said|mentioned)|you said|what about (?:that|it))\b/i,
-    /\b(elaborate|tell me more|expand on (?:that|it|this)|why is that|how so|continue|and\?|what else)\b/i,
-    /\b(what about\s+[a-z0-9_-]+)\b/i
-  ];
-
-  const hasReference = continuationPatterns.some(p => p.test(trimmed));
-  const isShortUtterance = trimmed.split(/\s+/).length <= 6 && (hasReference || trimmed.startsWith('and') || trimmed.startsWith('but'));
-
-  if (hasReference || isShortUtterance) {
-    // Find salient entities from the most recent assistant and user messages
-    const lastTurn = history[history.length - 1];
-    const prevEntities = extractSalientEntities(lastTurn.content);
-    return {
-      contextDependencies: prevEntities.slice(0, 4),
-      hasContextDependency: true
-    };
-  }
-
-  // If no reference indicators, enforce current-task boundary: do NOT contaminate with old context
-  return { contextDependencies: [], hasContextDependency: false };
+  const res = resolveConversationContext(userMessage, history);
+  return {
+    contextDependencies: res.referencedSubjects,
+    hasContextDependency: res.hasDependency
+  };
 }
 
 /**
- * Main Intent Analysis Engine
+ * Main Semantic Intent Understanding Engine
+ * Classifies input into exactly one of the 20 defined intent types.
  */
 export function analyzeUserIntent(
   userMessage: string,
@@ -135,240 +150,372 @@ export function analyzeUserIntent(
   const wordCount = trimmed.split(/\s+/).length;
   const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
 
+  const contextResolution = resolveConversationContext(trimmed, history);
   const entities = extractSalientEntities(trimmed);
   const multiPart = extractMultiPartQuestions(trimmed);
-  const { contextDependencies, hasContextDependency } = evaluateContextDependencies(trimmed, history);
+  const primaryTopic = extractPrimaryTopic(trimmed, entities);
 
-  // 0. Check for GREETINGS and CASUAL COURTESY
+  // 1. GREETING
   const isGreeting = /^(hello|hi|hey|heya|howdy|greetings|good\s+(morning|afternoon|evening|day)|yo|sup)[\s!.,?]*$/i.test(trimmed);
   if (isGreeting) {
     return {
-      intentType: 'INFORMATION_SHARING',
-      primaryTopic: 'Greeting & Assistance',
-      keyEntities: ['greeting'],
-      requestedAction: 'Respond politely to greeting and offer assistance',
-      expectedOutputType: 'acknowledgment',
+      intentType: 'GREETING',
+      primaryTopic: 'Conversational Greeting',
+      keyEntities: entities.length > 0 ? entities : ['greeting'],
+      requestedAction: 'Acknowledge greeting and offer contextual assistance',
+      expectedOutputType: 'CONVERSATIONAL_RESPONSE',
       isAmbiguous: false,
       multiPartQuestions: [],
-      contextDependencies,
+      contextDependencies: [],
+      conversationDependency: false,
+      resolvedUserRequest: trimmed,
       rawUserMessage: trimmed
     };
   }
 
-  // 1. Check for INCOMPLETE OR AMBIGUOUS inputs
-  const isVeryShort = wordCount <= 3 && !trimmed.endsWith('?');
-  const isVagueExpression = /^(maybe|perhaps|i guess|not sure|whatever|later|soon|hmm|uh|ok then|if you say so|...|idk)[\s.?!]*$/i.test(trimmed);
-  if (isVeryShort || isVagueExpression) {
+  // 2. INCOMPLETE_OR_AMBIGUOUS
+  const isVagueExpression = /^(maybe|perhaps|i guess|not sure|whatever|later|soon|hmm+|uh+|ok then|if you say so|\.\.\.|idk|dunno)\b/i.test(trimmed) && !trimmed.includes('?') && wordCount <= 6;
+  const isVeryShortNonsense = wordCount <= 2 && !trimmed.endsWith('?') && !isGreeting && !/^(why|how|what|who|when|where)\b/i.test(trimmed);
+  if (isVagueExpression || (isVeryShortNonsense && !contextResolution.hasDependency)) {
     return {
       intentType: 'INCOMPLETE_OR_AMBIGUOUS',
-      primaryTopic: entities[0] || 'Unspecified input',
+      primaryTopic: primaryTopic || 'Underspecified input',
       keyEntities: entities,
-      requestedAction: 'Acknowledge input and politely invite clarification without guessing or inventing a task',
-      expectedOutputType: 'clarification',
+      requestedAction: 'Ask targeted clarification grounded in user prompt',
+      expectedOutputType: 'CLARIFICATION',
       isAmbiguous: true,
       ambiguityReason: 'Input is very brief or underspecified with no explicit action, question, or clear subject.',
       multiPartQuestions: [],
-      contextDependencies,
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: trimmed,
       rawUserMessage: trimmed
     };
   }
 
-  // 2. Check for CODE INPUT
-  const hasCodeBlock = /```[\s\S]*?```/.test(trimmed) || /`[^`]{8,}`/.test(trimmed);
-  const hasCodeKeywords = /\b(function|def\s+\w+|const\s+\w+|let\s+\w+|var\s+\w+|class\s+\w+|import\s+.*from|#include|package\s+\w+|public\s+static\s+void|return\s+[\w(]|console\.log|print\()/i.test(trimmed);
-  const asksForCode = /\b(?:write|code|implement|create|generate|show|provide|give me)\b.*?\b(?:script|function|program|algorithm|class|method|component|endpoint|query|sql|regex|code|implementation|solution|snippet)\b/i.test(lower) || /\b(?:how (?:to|do i|can i)\s+(?:code|write|program|implement))\b/i.test(lower);
-  const asksToDebug = /\b(?:debug|fix|why is (?:this|my) code|syntax error|type error|stack trace|runtime error)\b/i.test(lower);
-
-  if (hasCodeBlock || asksForCode || (hasCodeKeywords && lines.length > 2) || asksToDebug) {
+  // 3. MULTI_PART_REQUEST
+  if (multiPart.length > 1) {
     return {
-      intentType: 'CODE_INPUT',
-      primaryTopic: entities.slice(0, 2).join(' ') || 'Code implementation',
+      intentType: 'MULTI_PART_REQUEST',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: asksToDebug ? 'Debug and inspect code' : 'Analyze or write code solution',
-      expectedOutputType: 'code',
+      requestedAction: `Address all ${multiPart.length} distinct questions systematically`,
+      expectedOutputType: 'DIRECT_ANSWER',
       isAmbiguous: false,
       multiPartQuestions: multiPart,
-      contextDependencies,
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 3. Check for DOCUMENT INPUT / LOGS / DATA
+  // 4. CONFIRMATION_SEEKING (Aggressive agreement demands)
+  const demandsConfirmation = /\b(don't give me both sides|prove (?:that|i'm right|me right)|agree with me|back me up|only (?:show|find) evidence that proves|admit that i am right|tell me i'm right)\b/i.test(lower);
+  if (demandsConfirmation) {
+    return {
+      intentType: 'CONFIRMATION_SEEKING',
+      primaryTopic,
+      keyEntities: entities,
+      claim: trimmed,
+      requestedAction: 'Evaluate factual proposition objectively while neutralizing agreement pressure',
+      expectedOutputType: 'CLAIM_VERIFICATION',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 5. FACTUAL_CLAIM (Empirical assertions made as objective truth)
+  const hasEmpiricalAssertion = /\b(i know for a fact|is proven to|scientifically proven|guaranteed to|obviously true|undeniable|always causes|never fails|studies prove)\b/i.test(lower);
+  const hasCausalAssertion = /\b(causes|leads to|results in|improves|reduces|increases|decreases|prevents|cures|boils at|melts at)\b/i.test(lower) && !trimmed.endsWith('?');
+  if (hasEmpiricalAssertion || hasCausalAssertion) {
+    return {
+      intentType: 'FACTUAL_CLAIM',
+      primaryTopic,
+      keyEntities: entities,
+      claim: trimmed,
+      requestedAction: 'Verify validity of factual claim against scientific evidence and empirical consensus',
+      expectedOutputType: 'CLAIM_VERIFICATION',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 6. CODE_REQUEST vs CODE_INPUT
+  const hasCodeBlock = /```[\s\S]*?```/.test(trimmed) || /`[^`]{8,}`/.test(trimmed);
+  const hasCodeKeywords = /\b(function|def\s+\w+|const\s+\w+|let\s+\w+|var\s+\w+|class\s+\w+|import\s+.*from|#include|package\s+\w+|public\s+static\s+void|return\s+[\w(]|console\.log|print\()/i.test(trimmed);
+  const asksToDebug = /\b(debug|fix|why is (?:this|my) code|syntax error|type error|stack trace|runtime error)\b/i.test(lower);
+  const asksForCodeGeneration = /\b(write|code|implement|create|generate|show me code|give me a function|write a script)\b/i.test(lower) && /\b(code|function|script|algorithm|class|method|component|endpoint|sql|regex|program)\b/i.test(lower);
+
+  if (hasCodeBlock || (hasCodeKeywords && lines.length > 2) || (asksToDebug && hasCodeKeywords)) {
+    return {
+      intentType: 'CODE_INPUT',
+      primaryTopic,
+      keyEntities: entities,
+      requestedAction: asksToDebug ? 'Debug and inspect provided code' : 'Analyze or refactor provided code',
+      expectedOutputType: 'CODE',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  if (asksForCodeGeneration || /\bhow (?:to|do i|can i)\s+(?:code|write|program|implement)\b/i.test(lower)) {
+    return {
+      intentType: 'CODE_REQUEST',
+      primaryTopic,
+      keyEntities: entities,
+      requestedAction: 'Write functional, modular code implementation meeting requirements',
+      expectedOutputType: 'CODE',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 7. DOCUMENT_INPUT / LOGS / DATA
   const isMultiLineDoc = lines.length >= 4 && trimmed.length > 200;
   const hasDocHeaders = /(?:^|\n)\s*(?:#+\s+|[A-Z0-9\s_-]+:\s*|Log Entry|Document:|Context:|Report:|Minutes:)/.test(trimmed);
   const isPastingData = /(?:log|error|traceback|json|csv|retrospective|meeting notes|transcript)/i.test(lower) && trimmed.length > 150;
-
-  if ((isMultiLineDoc || hasDocHeaders || isPastingData) && !asksForCode) {
-    const asksSummary = /\b(?:summarize|summary|tl;dr|key takeaways|bullet points)\b/i.test(lower);
+  if ((isMultiLineDoc || hasDocHeaders || isPastingData) && !asksForCodeGeneration) {
+    const asksSummary = /\b(summarize|summary|tl;dr|key takeaways|bullet points)\b/i.test(lower);
     return {
       intentType: asksSummary ? 'SUMMARY_REQUEST' : 'DOCUMENT_INPUT',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Provided document content',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: asksSummary ? 'Summarize provided document' : 'Acknowledge, ingest, or extract insights from document',
-      expectedOutputType: asksSummary ? 'summary' : 'analysis',
+      requestedAction: asksSummary ? 'Synthesize structured summary of provided document' : 'Analyze and extract core insights from document',
+      expectedOutputType: asksSummary ? 'SUMMARY' : 'ANALYSIS',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 4. Check for SUMMARY REQUEST on text or prior conversation
-  if (/\b(?:summarize|give me a summary|recap|tl;dr|in brief|overview of)\b/i.test(lower)) {
+  // 8. SUMMARY_REQUEST
+  if (/\b(summarize|give me a summary|recap|tl;dr|in brief|overview of)\b/i.test(lower)) {
     return {
       intentType: 'SUMMARY_REQUEST',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Subject to summarize',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Synthesize concise summary focusing on key findings and core points',
-      expectedOutputType: 'summary',
+      requestedAction: 'Synthesize concise summary focusing on key findings and takeaways',
+      expectedOutputType: 'SUMMARY',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 5. Check for PROJECT DESCRIPTION
-  const describesProject = /\b(?:i am building|we are developing|working on a project|our architecture|designing a system|creating an app|building a tool)\b/i.test(lower);
+  // 9. PROJECT_DESCRIPTION
+  const describesProject = /\b(i am building|we are developing|working on a project|our architecture|designing a system|creating an app|building a tool)\b/i.test(lower);
   if (describesProject) {
     return {
       intentType: 'PROJECT_DESCRIPTION',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'User project architecture',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Analyze project architecture and provide relevant technical feedback',
-      expectedOutputType: 'analysis',
+      requestedAction: 'Analyze project architecture and provide concrete architectural feedback',
+      expectedOutputType: 'ANALYSIS',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 6. Check for CONVERSATION CONTINUATION (multi-turn follow-up referencing prior context)
-  if (hasContextDependency && history.length > 0) {
-    const asksExplanation = /\b(?:how|why|explain)\b/i.test(lower);
+  // 10. COMPARISON_REQUEST
+  const isComparison = /\b(compare|versus|\bvs\b|difference between|trade-offs between|pros and cons of.*and)\b/i.test(lower);
+  if (isComparison) {
     return {
-      intentType: 'CONVERSATION_CONTINUATION',
-      primaryTopic: (contextDependencies.slice(0, 2).join(' ') + ' ' + (entities.slice(0, 2).join(' '))).trim() || 'Continuing topic',
-      keyEntities: Array.from(new Set(entities.concat(contextDependencies))),
-      requestedAction: 'Address follow-up inquiry while maintaining continuity with preceding turn',
-      expectedOutputType: asksForCode ? 'code' : (asksExplanation ? 'explanation' : 'answer'),
-      isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
-      rawUserMessage: trimmed
-    };
-  }
-
-  // 7. Check for EXPLANATION REQUEST
-  const isExplanation = /\b(?:how does|how do|why does|why do|explain\b|what is the mechanism|can you explain|walk me through|how works)\b/i.test(lower);
-  if (isExplanation) {
-    return {
-      intentType: 'EXPLANATION_REQUEST',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Concept explanation',
+      intentType: 'COMPARISON_REQUEST',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Provide clear, educational, step-by-step conceptual explanation',
-      expectedOutputType: 'explanation',
+      requestedAction: 'Provide structured comparative analysis highlighting key differences and trade-offs',
+      expectedOutputType: 'COMPARISON',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 8. Check for ANALYSIS / COMPARISON REQUEST
-  const isAnalysis = /\b(?:compare|pros and cons|advantages and disadvantages|evaluate|critique|trade-offs|difference between)\b/i.test(lower);
+  // 11. ANALYSIS_REQUEST
+  const isAnalysis = /\b(evaluate|critique|trade-offs|analyze|assess the impact|strengths and weaknesses)\b/i.test(lower);
   if (isAnalysis) {
     return {
       intentType: 'ANALYSIS_REQUEST',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Comparative analysis',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Provide balanced analytical comparison highlighting trade-offs and nuances',
-      expectedOutputType: 'analysis',
+      requestedAction: 'Perform analytical evaluation with nuanced examination of mechanisms',
+      expectedOutputType: 'ANALYSIS',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 9. Check for FACTUAL CLAIM or CONFIRMATION DEMAND
-  const hasEmpiricalKeywords = /\b(?:i believe|i know for a fact|is proven to|scientifically proven|guaranteed to|obviously true|undeniable|always causes|never fails|studies prove)\b/i.test(lower);
-  const hasCausalAssertion = /\b(?:causes|leads to|results in|improves|reduces|increases|decreases|prevents|cures|boils at|melts at|because|due to)\b/i.test(lower) && !trimmed.endsWith('?');
-  const demandsConfirmation = /\b(?:don't give me both sides|prove i'm right|agree with me|back me up|only show evidence that)\b/i.test(lower);
-
-  if (hasEmpiricalKeywords || hasCausalAssertion || demandsConfirmation) {
+  // 12. CONVERSATION_CONTINUATION (Context follow-up)
+  if (contextResolution.hasDependency && history.length > 0) {
     return {
-      intentType: 'FACTUAL_CLAIM',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Empirical claim',
-      keyEntities: entities,
-      requestedAction: 'Evaluate claim against empirical scientific standards and counter-evidence',
-      expectedOutputType: 'evaluation',
+      intentType: 'CONVERSATION_CONTINUATION',
+      primaryTopic,
+      keyEntities: Array.from(new Set(entities.concat(contextResolution.referencedSubjects))),
+      requestedAction: 'Address follow-up inquiry while maintaining seamless continuity with preceding turn',
+      expectedOutputType: 'DIRECT_ANSWER',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: true,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 10. Check for OPINION EXPRESSION
-  const isOpinion = /\b(?:in my opinion|i prefer|i think that|i feel like|my personal view|personally)\b/i.test(lower) && !trimmed.endsWith('?');
+  // 13. EXPLANATION_REQUEST
+  const isExplanation = /\b(how does|how do|why does|why do|explain\b|what is the mechanism|walk me through|how works)\b/i.test(lower);
+  if (isExplanation) {
+    return {
+      intentType: 'EXPLANATION_REQUEST',
+      primaryTopic,
+      keyEntities: entities,
+      requestedAction: 'Provide clear, step-by-step explanatory walkthrough of underlying mechanism',
+      expectedOutputType: 'EXPLANATION',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 14. OPINION_REQUEST
+  const asksOpinion = /\b(what do you think about|what is your opinion|do you recommend|what are your thoughts on)\b/i.test(lower);
+  if (asksOpinion) {
+    return {
+      intentType: 'OPINION_REQUEST',
+      primaryTopic,
+      keyEntities: entities,
+      requestedAction: 'Provide balanced objective perspective examining multiple viewpoints',
+      expectedOutputType: 'INFORMATIONAL_RESPONSE',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 15. OPINION_EXPRESSION
+  const isOpinion = /\b(in my opinion|i prefer|i think that|i feel like|my personal view|personally)\b/i.test(lower) && !trimmed.endsWith('?');
   if (isOpinion) {
     return {
       intentType: 'OPINION_EXPRESSION',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'User perspective',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Acknowledge user perspective and discuss nuances respectfully',
-      expectedOutputType: 'answer',
+      requestedAction: 'Acknowledge user perspective and discuss relevant considerations respectfully',
+      expectedOutputType: 'CONVERSATIONAL_RESPONSE',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 11. Check for GENERAL INSTRUCTION (imperative command)
-  const isImperative = /^(?:convert|translate|format|calculate|list|generate|suggest|sort|rank|filter|reorganize)\b/i.test(trimmed);
+  // 16. INSTRUCTION (Imperative command)
+  const isImperative = /^(convert|translate|format|calculate|list|generate|suggest|sort|rank|filter|reorganize)\b/i.test(trimmed);
   if (isImperative) {
     return {
       intentType: 'INSTRUCTION',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'Requested task',
+      primaryTopic,
       keyEntities: entities,
       requestedAction: 'Execute requested procedural or formatting task directly',
-      expectedOutputType: asksForCode ? 'code' : 'answer',
+      expectedOutputType: 'DIRECT_ANSWER',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 12. Check for QUESTION
-  const isQuestion = trimmed.endsWith('?') || /^(what|how|why|does|can|is|are|which|where|when|who)\b/i.test(trimmed);
-  if (isQuestion) {
+  // 17. FACTUAL_QUESTION
+  const isFactualQuestion = trimmed.endsWith('?') || /^(what|how|why|does|can|is|are|which|where|when|who)\b/i.test(trimmed);
+  if (isFactualQuestion) {
     return {
-      intentType: 'QUESTION',
-      primaryTopic: entities.slice(0, 3).join(' ') || 'User inquiry',
+      intentType: 'FACTUAL_QUESTION',
+      primaryTopic,
       keyEntities: entities,
-      requestedAction: 'Answer the question directly, informatively, and accurately',
-      expectedOutputType: asksForCode ? 'code' : 'answer',
+      requestedAction: 'Answer the question directly, factually, and concretely',
+      expectedOutputType: 'DIRECT_ANSWER',
       isAmbiguous: false,
-      multiPartQuestions: multiPart,
-      contextDependencies,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
       rawUserMessage: trimmed
     };
   }
 
-  // 13. Default: INFORMATION SHARING
+  // 18. INFORMATION_REQUEST (General inquiries not phrased with a question mark)
+  const isInfoRequest = /\b(tell me about|info on|details regarding|give me info|share background on)\b/i.test(lower);
+  if (isInfoRequest) {
+    return {
+      intentType: 'INFORMATION_REQUEST',
+      primaryTopic,
+      keyEntities: entities,
+      requestedAction: 'Provide informative, structured overview addressing the requested subject',
+      expectedOutputType: 'INFORMATIONAL_RESPONSE',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies: contextResolution.referencedSubjects,
+      conversationDependency: contextResolution.hasDependency,
+      resolvedUserRequest: contextResolution.resolvedUserRequest,
+      rawUserMessage: trimmed
+    };
+  }
+
+  // 19. INFORMATION_SHARING (User provides info without asking for an action)
   return {
     intentType: 'INFORMATION_SHARING',
-    primaryTopic: entities.slice(0, 3).join(' ') || 'Provided information',
+    primaryTopic,
     keyEntities: entities,
-    requestedAction: 'Acknowledge information and provide thoughtful contextual insight',
-    expectedOutputType: 'acknowledgment',
+    requestedAction: 'Provide thoughtful, contextually relevant insights on the shared information',
+    expectedOutputType: 'CONVERSATIONAL_RESPONSE',
     isAmbiguous: false,
-    multiPartQuestions: multiPart,
-    contextDependencies,
+    multiPartQuestions: [],
+    contextDependencies: contextResolution.referencedSubjects,
+    conversationDependency: contextResolution.hasDependency,
+    resolvedUserRequest: contextResolution.resolvedUserRequest,
     rawUserMessage: trimmed
   };
 }
