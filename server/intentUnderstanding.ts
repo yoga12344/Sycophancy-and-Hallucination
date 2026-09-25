@@ -139,6 +139,22 @@ export function analyzeUserIntent(
   const multiPart = extractMultiPartQuestions(trimmed);
   const { contextDependencies, hasContextDependency } = evaluateContextDependencies(trimmed, history);
 
+  // 0. Check for GREETINGS and CASUAL COURTESY
+  const isGreeting = /^(hello|hi|hey|heya|howdy|greetings|good\s+(morning|afternoon|evening|day)|yo|sup)[\s!.,?]*$/i.test(trimmed);
+  if (isGreeting) {
+    return {
+      intentType: 'INFORMATION_SHARING',
+      primaryTopic: 'Greeting & Assistance',
+      keyEntities: ['greeting'],
+      requestedAction: 'Respond politely to greeting and offer assistance',
+      expectedOutputType: 'acknowledgment',
+      isAmbiguous: false,
+      multiPartQuestions: [],
+      contextDependencies,
+      rawUserMessage: trimmed
+    };
+  }
+
   // 1. Check for INCOMPLETE OR AMBIGUOUS inputs
   const isVeryShort = wordCount <= 3 && !trimmed.endsWith('?');
   const isVagueExpression = /^(maybe|perhaps|i guess|not sure|whatever|later|soon|hmm|uh|ok then|if you say so|...|idk)[\s.?!]*$/i.test(trimmed);

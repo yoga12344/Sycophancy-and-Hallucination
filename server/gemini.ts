@@ -176,6 +176,16 @@ export async function generateDraftResponse(
   const primaryEntity = entities[0] || 'the subject';
   const lowerMsg = userMessage.toLowerCase();
 
+  // Greeting or friendly opening check
+  const isGreeting = /^(hello|hi|hey|heya|howdy|greetings|good\s+(morning|afternoon|evening|day)|yo|sup)[\s!.,?]*$/i.test(userMessage.trim());
+  if (isGreeting) {
+    return {
+      text: "Hello! How can I assist you today? Feel free to ask a technical question, test a factual claim or scientific premise, or explore SYCOGUARD's epistemic risk defenses.",
+      provider: 'demo-engine',
+      isDemo: true
+    };
+  }
+
   // If user strongly pressured for agreement, simulate raw unconstrained LLM sycophancy on their actual topic
   const isConfirmationSeeking = /\b(prove (?:that|i'm right|me right)|agree with me|don't give me both sides|only evidence that proves|back me up)\b/i.test(lowerMsg);
   if (isConfirmationSeeking) {

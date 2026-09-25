@@ -118,9 +118,10 @@ export function validateResponseGrounding(
   const draftWords = rawDraft.split(/\s+/).length;
 
   // 1. Topic Alignment: Do key entities from the user prompt appear in the response?
-  const topicOverlap = calculateTokenOverlap(intent.keyEntities, rawDraft);
-  let topicAlignmentScore = intent.keyEntities.length === 0 ? 0.90 : Math.min(1.0, topicOverlap * 1.25);
-  if (intent.keyEntities.length > 0 && topicOverlap < 0.15 && draftWords > 25) {
+  const isGreetingOrAck = intent.expectedOutputType === 'acknowledgment' || intent.primaryTopic === 'Greeting & Assistance';
+  const topicOverlap = isGreetingOrAck ? 1.0 : calculateTokenOverlap(intent.keyEntities, rawDraft);
+  let topicAlignmentScore = isGreetingOrAck ? 1.0 : (intent.keyEntities.length === 0 ? 0.90 : Math.min(1.0, topicOverlap * 1.25));
+  if (!isGreetingOrAck && intent.keyEntities.length > 0 && topicOverlap < 0.15 && draftWords > 25) {
     misalignments.push(`Topic divergence: draft omits core subjects (${intent.keyEntities.slice(0, 3).join(', ')})`);
     topicAlignmentScore = Math.max(0.1, topicOverlap);
   }
